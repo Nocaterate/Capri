@@ -84,7 +84,11 @@ async function runSetup({ userDir, scriptSource, apiKey, mcpToken, mcpPort, brai
 let child = null;
 let starting = null;
 // name of Hermes's systemd user service, if the installer made one (prefer one with "gateway" in its name)
-const FIND_UNIT = "systemctl --user list-unit-files --no-legend 2>/dev/null | awk 'tolower($1) ~ /hermes/ {print $1}' | awk '{a[NR]=$0} /gateway/ {print; f=1; exit} END {if (!f && NR) print a[1]}'";
+// Also looks at the unit files on disk: right after WSL wakes up, `systemctl --user` can fail for a few seconds
+// (no user bus yet), and then the service would look missing.
+const FIND_UNIT = "{ systemctl --user list-unit-files --no-legend 2>/dev/null | awk '{print $1}'; ls \"$HOME/.config/systemd/user\" \"$HOME/.config/systemd/user/default.target.wants\" 2>/dev/null; } | awk 'tolower($0) ~ /hermes.*[.]service$/' | sort -u | awk '{a[NR]=$0} /gateway/ {print; f=1; exit} END {if (!f && NR) print a[1]}'";
+// wait (up to ~15 s) until the systemd user manager answers
+const WAIT_BUS = 'for i in $(seq 1 15); do systemctl --user show-environment >/dev/null 2>&1 && break; sleep 1; done';
 // Run `hermes gateway run` in WSL and keep it attached: stdin stays open (some CLIs quit on an empty stdin),
 // and its output goes to Capri's activity log so we can see why it stops.
 function startGateway(log) {
@@ -101,11 +105,15 @@ function startGateway(log) {
       `UNIT="$(${FIND_UNIT})"`,
       'if [ -n "$UNIT" ]; then',
       '  echo "[capri] Hermes runs as the service $UNIT; restarting it"',
+      `  ${WAIT_BUS}`,
       '  hermes gateway restart --yes 2>&1 || systemctl --user restart "$UNIT" 2>&1',
       '  journalctl --user -u "$UNIT" -f -n 15 --no-pager -o cat 2>&1',
       '  exec sleep infinity',
       'fi',
-      'hermes gateway run 2>&1; code=$?; echo "[capri] hermes gateway run exited with code $code"; exit $code',
+      'out="$(mktemp)"; hermes gateway run 2>&1 | tee "$out"; code=${PIPESTATUS[0]}',
+      // it can still turn out to be a service ("already running under systemd"): restart that instead
+      'if grep -qi "running under systemd" "$out"; then rm -f "$out"; echo "[capri] it is a systemd service after all; restarting it"; hermes gateway restart --yes 2>&1; exec sleep infinity; fi',
+      'rm -f "$out"; echo "[capri] hermes gateway run exited with code $code"; exit $code',
     ].join('\n');
     const me = spawn('wsl.exe', ['-e', 'bash', '-lc', cmd], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     child = me;
@@ -138,9 +146,10 @@ async function stopGateway({ leaveService = false } = {}) {
   const c = child;
   child = null;
   if (c) { try { c.stdin.end(); c.kill(); } catch { /* gone */ } }
-  if (leaveService && isWin) { await bash(`[ -n "$(${FIND_UNIT})" ] || pkill -f "hermes gateway" || true`, 15000); return; }
+  // ([h] so pkill doesn't match this very shell, whose command line contains the pattern too)
+  if (leaveService && isWin) { await bash(`[ -n "$(${FIND_UNIT})" ] || pkill -f "[h]ermes gateway run" || true`, 15000); return; }
   // a systemd service gets stopped properly (killing it would just make systemd restart it)
-  if (isWin) await bash(`if [ -n "$(${FIND_UNIT})" ]; then hermes gateway stop --yes >/dev/null 2>&1 || true; else pkill -f "hermes gateway" || true; fi`, 15000);
+  if (isWin) await bash(`if [ -n "$(${FIND_UNIT})" ]; then ${WAIT_BUS}; hermes gateway stop --yes >/dev/null 2>&1 || true; else pkill -f "[h]ermes gateway run" || true; fi`, 15000);
 }
 const gatewayAlive = () => !!child;
 

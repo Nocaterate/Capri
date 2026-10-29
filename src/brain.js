@@ -3,7 +3,7 @@
 
 const EMOTIONS = ['happy', 'sad', 'angry', 'surprised', 'relaxed', 'neutral'];
 // actions whose result already says everything; she replies from it directly (no second AI call)
-const FAST_TOOLS = new Set(['spotify_play', 'spotify_control', 'spotify_queue', 'media_control', 'open_app', 'close_app', 'open_website', 'search_web', 'set_reminder']);
+const FAST_TOOLS = new Set(['spotify_play', 'spotify_control', 'spotify_queue', 'media_control', 'open_app', 'close_app', 'open_website', 'search_web', 'set_reminder', 'add_todo', 'remove_todo', 'add_note']);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const TOOLS = [
@@ -122,6 +122,58 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'add_todo',
+      description: "Add an item to the user's to-do list (Capri's Notes & To-do panel). If they give a time, include it: Capri then reminds them at that time. Use this for \"add to my to-do list\", \"remind me at 8 to ...\", \"put ... on my list\".",
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'The to-do, short (max 50 letters).' },
+          time: { type: 'string', description: 'Optional clock time in 24-hour HH:MM, e.g. "20:00". Work it out from the current time for things like "in 2 hours".' },
+          remind: { type: 'boolean', description: 'Remind at that time. Default true when a time is given.' },
+        },
+        required: ['text'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_todos',
+      description: "Read the user's to-do list (each item with its time and whether its reminder is on).",
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'remove_todo',
+      description: 'Remove an item from the to-do list when the user says it is done or asks to delete it. Matches by its text.',
+      parameters: { type: 'object', properties: { text: { type: 'string', description: 'The to-do text, or part of it.' } }, required: ['text'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_note',
+      description: "Write a note in the user's Notes. If a note with the same title already exists, the text is added to the end of it.",
+      parameters: {
+        type: 'object',
+        properties: { title: { type: 'string', description: 'Short title.' }, text: { type: 'string', description: 'The note text. Plain text; separate lines with \\n.' } },
+        required: ['title', 'text'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_notes',
+      description: "Read the user's notes: a list of titles, or the full text of the note whose title matches.",
+      parameters: { type: 'object', properties: { title: { type: 'string', description: 'Optional: which note to read.' } } },
+    },
+  },
 ];
 
 function systemPrompt(cfg, extra) {
@@ -138,6 +190,7 @@ function systemPrompt(cfg, extra) {
     '- Speak English.',
     `- ALWAYS start your reply with exactly one emotion tag in square brackets, one of: ${EMOTIONS.map((e) => `[${e}]`).join(' ')}. Example: "[happy] On it, opening YouTube for you!"`,
     '- When the user asks you to open something, search, control music or volume, or set a reminder, call the matching tool, then confirm briefly.',
+    '- You keep the user\'s Notes & To-do list. When they ask you to add, check off, delete or read to-dos or notes, use add_todo, remove_todo, list_todos, add_note and read_notes. A to-do with a clock time ("remind me at 8 to call mom") goes in add_todo with time "20:00"; set_reminder is only for "in N minutes".',
     '- To play a song, artist, album or playlist, ALWAYS call spotify_play. It opens Spotify by itself, so do not call open_app for that. Use the other spotify_ tools for now playing, skip, pause, shuffle and queue; media_control is for other players or the system volume.',
     '- Never say music is playing, an app opened, or anything else happened unless a tool result in this turn says so. If the result says it did not work, say that.',
     '- Base your confirmation on what the tool result says; if it says something could not be done, tell the user honestly.',
@@ -145,7 +198,7 @@ function systemPrompt(cfg, extra) {
     extra && extra.context ? `Context: ${extra.context}` : '',
     isHermes(cfg) ? [
       'You are running as Hermes Agent, speaking to the user through Capri, their pixel-art desktop companion on Windows. Your reply is spoken aloud by Capri automatically.',
-      'To act on their Windows PC (play music, open or close apps, media keys, reminders on the PC, animations), use the mcp_capri_* tools. Do not call mcp_capri_say for this reply.',
+      'To act on their Windows PC (play music, open or close apps, media keys, reminders on the PC, their Notes & To-do list, animations), use the mcp_capri_* tools. Do not call mcp_capri_say for this reply.',
     ].join(' ') : '',
   ].filter(Boolean).join('\n');
 }

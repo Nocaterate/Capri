@@ -5,6 +5,7 @@
 import META from '../assets/capri/sheet.js';
 import { FX } from './fx.js';
 import * as sfx from './sfx.js';
+import { initNotes } from './notes.js';
 
 const api = window.companion;
 const $ = (id) => document.getElementById(id);
@@ -319,12 +320,12 @@ async function teleportTo(x) {
   savePos();
 }
 
-function startWalk(target, dash = false) {
+function startWalk(target, dash = false, boost = 1) {
   if (st.mode !== 'idle') return;
   const half = (SW / 2) * S;
   target = clamp(target, half, W - half);
   if (Math.abs(target - st.pos.x) < S * 6) return;
-  st.walk = { target, dash, phase: 0, ghostT: 0, stepT: 0 };
+  st.walk = { target, dash, phase: 0, ghostT: 0, stepT: 0, boost };
   st.flip = target > st.pos.x ? 1 : -1;
   st.mode = 'walking';
   if (dash) { sfx.zap(0.6); st.glitchT = 0.08; }
@@ -979,7 +980,7 @@ function update(dt) {
   // walking / dashing
   if (st.mode === 'walking' && st.walk) {
     const w = st.walk;
-    const speed = (w.dash ? 95 : 26) * S;
+    const speed = (w.dash ? 95 : 26) * S * (w.boost || 1);
     const dir = Math.sign(w.target - st.pos.x);
     st.pos.x += dir * speed * dt;
     w.phase += dt * (w.dash ? 16 : 7);
@@ -1857,6 +1858,14 @@ async function speak(text, emotion = 'neutral', { heard = '', quick = false } = 
   setTimeout(done, Math.min(7000, text.length * 55));
 }
 
+// ------------------------------------------------------------------ notes & to-do hologram
+const notes = initNotes({
+  api, st, fx, sfx, play, startWalk, ensureVisible, endChill, setEmotion, orbScreen, setInteractive,
+  S: () => S, W: () => W, H: () => H, name: () => cfg.characterName || 'Capri',
+  duoX: () => (duoShown() ? duo.x : null),
+  coreScreen: () => (st.chill ? orbScreen() : toScreen(AX, CORE_Y)),
+});
+
 // ------------------------------------------------------------------ events from main
 api.onTalkToggle(async () => {
   sfx.audio();
@@ -1873,7 +1882,7 @@ api.onReminder(async (msg) => {
 });
 api.onToast((msg) => say(msg, { seconds: 3 }));
 api.onSay(async ({ text, emotion }) => { await ensureVisible(); speak(text, emotion || 'neutral'); });
-api.onDismiss(async () => { hideBubble(); stopSpeaking(); await teleportOut(); });
+api.onDismiss(async () => { hideBubble(); stopSpeaking(); notes.close(true); await teleportOut(); });
 api.onSummon(async () => { if (!st.visible) await teleportIn(st.pos.x, { dramatic: true }); });
 if (api.onDuo) api.onDuo((on) => (on ? callD() : uncallD()));
 api.onAction(async (name) => {
@@ -1940,7 +1949,7 @@ function scheduleIdle() {
 }
 let lastLineAt = performance.now();
 function idleTick() {
-  if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill) return;
+  if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill || st.notesOpen) return;
   const now = performance.now();
   const r = Math.random();
   // left alone for a while: sometimes she just leans back and chills
@@ -1983,7 +1992,7 @@ async function greet() {
 
 // ------------------------------------------------------------------ boot
 requestAnimationFrame(loop);
-window.__test = { duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
+window.__test = { notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
 window.__ready = true;
 await sleep(500);
 await teleportIn(st.pos.x, { dramatic: true });

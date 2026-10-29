@@ -44,11 +44,12 @@ Capri is an agent: the AI decides when to use these tools, so just ask in normal
 | Media keys and volume | "Pause", "Next song", "Turn the volume down" |
 | Spotify (exact songs, queue, shuffle) | "Play Espresso by Sabrina Carpenter", "Queue Blinding Lights" |
 | Reminders | "Remind me in 10 minutes to take the laundry out" |
+| Notes & to-do list (with timed reminders) | "Remind me at 8 pm to call mom", "Write a note called Ideas: pixel hoodie" |
 
 She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
 
 ### Privacy
-Your keys, tokens, settings, chat memory and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself. Never share your `config.json` or post your keys in issues.
+Your keys, tokens, settings, chat memory, notes, to-dos and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself. Never share your `config.json` or post your keys in issues.
 
 ### Updating / uninstalling
 - **Update:** download the new release and extract it over the old folder (or into a new one). Your settings stay in `%APPDATA%\Capri`.
@@ -67,7 +68,8 @@ Right-click Capri → **Settings…**. The presets at the top (Groq, Gemini, Cla
 | Move her | Drag her: she turns into her red electric form and snaps back with a strike where you drop her |
 | Poke | Click once. Poke her too much and she gets annoyed. |
 | Resize | Hover over her and scroll |
-| Menu (Power up, Teleport, Dash, Settings) | Right-click her |
+| Notes & To-do list | Right-click her (or the tray icon) → **Notes & To-do list** |
+| Menu (Power up, Teleport, Dash, Notes, Settings) | Right-click her |
 
 Things you can say:
 - "Open YouTube and search for lofi music"
@@ -75,6 +77,35 @@ Things you can say:
 - "Close Chrome" / "What apps are open?"
 - "Pause the music" / "Turn the volume down"
 - "Remind me in 10 minutes to take the laundry out"
+- "Remind me at 8 pm to call mom" / "What's on my to-do list?"
+
+## Notes & To-do list
+Capri keeps a notes pad and a to-do list for you in a hologram panel she projects next to herself.
+
+**Open it:** right-click Capri (or the tray icon) → **Notes & To-do list**. She zaps to the side of the screen with more room and the panel scans in beside her. Close it with **✕**, **Esc**, or the same menu item.
+
+**Notes tab**
+- Click **+ New note**, give it a title and write anything. It saves by itself (the green **● Saved** light).
+- Click a note on the left to open it; **Delete note** removes it (it asks first).
+
+**To-do list tab**
+- Type the to-do (max 50 letters), optionally pick a **time**, and click **Add**.
+- **Remind me** (the bell): when it glows, Capri reminds you at that time. She says it out loud and Windows shows a notification. If the time has already passed today, she reminds you tomorrow. If Capri was closed at that time, she reminds you as soon as she starts.
+- After a reminder fires, its bell turns off by itself, so a glowing bell always means "a reminder is still coming".
+- In the table you can change a time, switch a row's bell on or off, or delete a row (it asks first).
+
+**Or just ask her** (by voice, text, Discord as the owner, or through Hermes):
+
+| Say | What happens |
+|---|---|
+| "Add buy milk to my to-do list" | Adds a to-do with no time |
+| "Remind me at 8 pm to call mom" | Adds "call mom" at 20:00 with the reminder on |
+| "What's on my to-do list?" | She reads the list |
+| "I finished call mom" / "Delete buy milk" | Removes it |
+| "Write a note called Ideas: pixel hoodie" | Makes a new note, or adds a line if "Ideas" already exists |
+| "Read my Ideas note" / "What notes do I have?" | She reads it out, or lists the titles |
+
+"Remind me **in** 10 minutes" is a quick one-off reminder; "remind me **at** 8 pm" goes on the to-do list. Everything is saved only on your PC in `%APPDATA%\Capri\notes.json`.
 
 ## Her voice
 Out of the box she uses a free Microsoft Edge voice, no setup needed.
@@ -129,7 +160,7 @@ Add variations as `zap_2.mp3`, `zap_3.mp3`, … and she picks one at random.
 ## Hermes Agent (optional)
 Capri can team up with [Hermes Agent](https://hermes-agent.nousresearch.com/docs/) from Nous Research, an open-source AI agent with long-term memory, self-written skills, web research and chat apps like Telegram.
 - **Capri talks through Hermes:** her replies come from Hermes, with its memory of you.
-- **Hermes uses Capri's powers:** Spotify, opening/closing apps, media keys, reminders, and making Capri speak or react (`mcp_capri_*` tools). This works from anywhere Hermes listens, e.g. message it on Telegram "play Espresso on my PC".
+- **Hermes uses Capri's powers:** Spotify, opening/closing apps, media keys, reminders, your notes and to-do list, and making Capri speak or react (`mcp_capri_*` tools). This works from anywhere Hermes listens, e.g. message it on Telegram "play Espresso on my PC".
 
 ### 1. Install WSL (once)
 Open **PowerShell as administrator** and run `wsl --install`. Restart Windows when asked, then finish the Ubuntu window that opens (pick a Linux username and password).
@@ -213,6 +244,7 @@ A GTX 1650 (4 GB) is enough for a small model:
 - `src/brain.js`: speech-to-text and AI chat (any OpenAI-compatible API)
 - `src/tts.js`: her cloned voice (Fish Audio) and the Edge fallback voice
 - `renderer/app.js`: the character, animations, interaction and voice flow
+- `renderer/notes.js`: the Notes & To-do hologram panel (reminders are fired by `main.js`)
 - `renderer/fx.js`: lightning, sparks, particles, rings, afterimages and emotes
 - `renderer/sfx.js`: synthesized sound effects, your custom sounds, and the digital voice chain
 

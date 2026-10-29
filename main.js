@@ -1,7 +1,7 @@
 // Capri — desktop companion, main process.
 // Transparent always-on-top overlay + tray + hotkeys + AI/voice backend.
 const {
-  app, BrowserWindow, ipcMain, screen, globalShortcut, Tray, Menu, nativeImage, shell, session,
+  app, BrowserWindow, ipcMain, screen, globalShortcut, Tray, Menu, nativeImage, shell, session, Notification,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -23,6 +23,7 @@ const USER_DIR = app.getPath('userData');
 const CONFIG_PATH = path.join(USER_DIR, 'config.json');
 const HISTORY_PATH = path.join(USER_DIR, 'history.json');
 const LOG_PATH = path.join(USER_DIR, 'capri.log');
+const NOTES_PATH = path.join(USER_DIR, 'notes.json');
 function log(...parts) {
   try {
     fs.mkdirSync(USER_DIR, { recursive: true });
@@ -206,6 +207,7 @@ function menuTemplate() {
       ]).map((it) => (Array.isArray(it) ? { label: it[0], click: () => send('action', it[1]) } : it)),
     },
     { label: config.dOut ? 'Uncall D' : 'Call D', click: () => setConfig({ dOut: !config.dOut }) },
+    { label: notesOpen ? 'Close notes & to-do' : 'Notes & To-do list', click: () => { toggleHidden(false); send('notes-toggle'); } },
     { label: 'Open activity log', click: () => { if (!fs.existsSync(LOG_PATH)) log('log started'); shell.openPath(LOG_PATH); } },
     { label: 'Clear chat memory', click: () => { history = []; saveJSON(HISTORY_PATH, history); send('toast', 'Chat memory wiped. Fresh start!'); } },
     { type: 'separator' },
@@ -242,6 +244,101 @@ function setConfig(patch) {
   if (tray) buildTray();
 }
 
+// ---------- notes & to-do list ----------
+// Saved in <userData>/notes.json. To-dos with "Remind me" on and a time get a reminder at the next time
+// that clock time comes round; when it fires Capri says it (and Windows shows a notification), then the
+// bell turns itself off so its light always shows whether a reminder is still pending.
+let notesOpen = false;
+const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
+function loadNotes() {
+  const d = loadJSON(NOTES_PATH, {});
+  return { notes: Array.isArray(d.notes) ? d.notes : [], todos: Array.isArray(d.todos) ? d.todos : [] };
+}
+function nextOccurrence(hhmm, from = Date.now()) {
+  const [h, m] = hhmm.split(':').map(Number);
+  const t = new Date(from);
+  t.setHours(h, m, 0, 0);
+  if (t.getTime() <= from + 1000) t.setDate(t.getDate() + 1);
+  return t.getTime();
+}
+function cleanNotes(doc, prev) {
+  const old = new Map((prev ? prev.todos : []).map((t) => [t.id, t]));
+  // the overlay saves notes and to-dos separately; whatever it didn't send stays as it was
+  const notes = !Array.isArray(doc.notes) ? (prev ? prev.notes : []) : doc.notes.slice(0, 500).map((n) => ({
+    id: clip(n.id, 40) || crypto.randomUUID(), title: clip(n.title, 120), body: clip(n.body, 20000), updated: Number(n.updated) || Date.now(),
+  }));
+  if (!Array.isArray(doc.todos)) return { notes, todos: prev ? prev.todos : [] };
+  const todos = doc.todos.slice(0, 500).map((t) => {
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(t.time || '') ? t.time : '';
+    const out = { id: clip(t.id, 40) || crypto.randomUUID(), text: clip(t.text, 50), time, remind: !!(t.remind && time), created: Number(t.created) || Date.now() };
+    if (out.remind) {
+      const was = old.get(out.id);
+      // keep the planned time unless the reminder was just switched on or its time changed
+      out.remindAt = was && was.remind && was.time === time && was.remindAt ? was.remindAt : nextOccurrence(time);
+    }
+    return out;
+  });
+  return { notes, todos };
+}
+// "20:00", "8:30 pm", "8pm", "0815" → "HH:MM" ('' when there is no time, null when it can't be read)
+function parseClock(v) {
+  if (v == null || String(v).trim() === '') return '';
+  const m = String(v).trim().toLowerCase().match(/^(\d{1,2})(?:[:.h]?(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?$/);
+  if (!m) return null;
+  let h = Number(m[1]); const min = Number(m[2] || 0);
+  if (m[3]) { if (h < 1 || h > 12) return null; if (m[3][0] === 'p' && h < 12) h += 12; if (m[3][0] === 'a' && h === 12) h = 0; }
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+// save a whole notes document from main (Capri's own tools) and tell the panel
+function saveNotesDoc(doc, tab, focus) {
+  const clean = cleanNotes(doc, loadNotes());
+  saveJSON(NOTES_PATH, clean);
+  scheduleTodoReminders(clean);
+  send('notes-updated', { ...clean, by: 'capri', tab, focus });
+  return clean;
+}
+const todoTimers = new Map();
+function scheduleTodoReminders(doc) {
+  for (const t of todoTimers.values()) clearTimeout(t);
+  todoTimers.clear();
+  for (const t of doc.todos) {
+    if (!t.remind || !t.remindAt) continue;
+    const wait = Math.max(1500, t.remindAt - Date.now());   // missed while Capri was closed: remind right away
+    todoTimers.set(t.id, setTimeout(() => fireTodoReminder(t.id), Math.min(wait, 2 ** 31 - 1)));
+  }
+}
+function fireTodoReminder(id) {
+  todoTimers.delete(id);
+  const doc = loadNotes();
+  const t = doc.todos.find((x) => x.id === id);
+  if (!t || !t.remind) return;
+  if (t.remindAt - Date.now() > 60000) { scheduleTodoReminders(doc); return; }   // a long wait was capped: not yet
+  const late = Date.now() - t.remindAt > 5 * 60000;
+  t.remind = false; delete t.remindAt;
+  saveJSON(NOTES_PATH, doc);
+  log('to-do reminder:', t.text, late ? '(missed earlier)' : '');
+  toggleHidden(false);
+  send('reminder', late ? `${t.text} (that was at ${t.time})` : t.text);
+  send('notes-updated', doc);
+  try {
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: `${config.characterName} reminder`, body: `${t.text}${t.time ? `  ·  ${t.time}` : ''}`, icon: path.join(ASSET_DIR, 'icon256.png') });
+      n.on('click', () => { toggleHidden(false); send('notes-toggle', 'open'); });
+      n.show();
+    }
+  } catch (e) { log('notification failed', e.message); }
+}
+ipcMain.handle('notes-get', () => loadNotes());
+ipcMain.handle('notes-save', (_e, doc) => {
+  const clean = cleanNotes(doc || {}, loadNotes());
+  saveJSON(NOTES_PATH, clean);
+  scheduleTodoReminders(clean);
+  return clean;
+});
+ipcMain.on('notes-state', (_e, open) => { notesOpen = !!open; if (tray) buildTray(); });
+ipcMain.on('focus-overlay', () => { if (alive()) { setIgnoreMouse(false); overlay.focus(); } });
+
 // ---------- live updates ----------
 // When Capri runs from a plain folder (resources/app, not app.asar), editing her files updates her by herself:
 // look-only files (renderer/, assets/) reload her window, anything else restarts the app.
@@ -255,11 +352,21 @@ function watchOwnFiles() {
   let timer = null;
   let needRestart = false;
   const changed = new Set();
+  // Windows also reports a file when it is only *read* (its last-access time changes), so only count
+  // files whose contents really changed: newer than when we started watching / last saw them.
+  const since = Date.now() - 2000;
+  const seen = new Map();
   try {
     fs.watch(__dirname, { recursive: true }, (_ev, file) => {
       if (!file) return;
       const f = String(file).replace(/\\/g, '/');
-      if (/^(node_modules|\.git)\//.test(f) || /(^|\/)(\.|~)|\.(log|tmp|swp)$/i.test(f)) return;
+      if (/^(node_modules|\.git)(\/|$)/.test(f) || /(^|\/)(\.|~)|\.(log|tmp|swp)$/i.test(f)) return;
+      try {
+        const s = fs.statSync(path.join(__dirname, f));
+        if (s.isDirectory()) return;
+        if (s.mtimeMs <= (seen.get(f) || since)) return;
+        seen.set(f, s.mtimeMs);
+      } catch { /* deleted or renamed: that counts as a change */ }
       changed.add(f);
       if (!/^(renderer|assets)\//.test(f)) needRestart = true;
       clearTimeout(timer);
@@ -471,6 +578,52 @@ const actions = {
     }, m * 60 * 1000);
     reminders.add(t);
     return `Reminder set for ${m} minutes from now: ${message}`;
+  },
+  // her Notes & To-do list (the hologram panel)
+  add_todo({ text, time, remind }) {
+    const t = clip(String(text || '').trim(), 50);
+    if (!t) return 'I need to know what the to-do is.';
+    const hm = parseClock(time);
+    if (time && !hm) return `I couldn't understand the time "${time}". Say it like 20:00.`;
+    const doc = loadNotes();
+    const item = { id: crypto.randomUUID(), text: t, time: hm, remind: !!hm && remind !== false, created: Date.now() };
+    doc.todos.push(item);
+    const saved = saveNotesDoc(doc, 'todo', item.id);
+    const it = saved.todos.find((x) => x.id === item.id);
+    const day = it && it.remindAt && new Date(it.remindAt).toDateString() !== new Date().toDateString() ? ' tomorrow' : '';
+    return `Added to your to-do list: "${t}"${hm ? (it.remind ? `, and I'll remind you${day} at ${hm}.` : ` at ${hm}.`) : '.'}${String(text).trim().length > 50 ? ' (I shortened it to 50 letters.)' : ''}`;
+  },
+  list_todos() {
+    const { todos } = loadNotes();
+    if (!todos.length) return 'The to-do list is empty.';
+    return todos.map((t, i) => `${i + 1}. ${t.text}${t.time ? ` at ${t.time}` : ''}${t.remind ? ' (reminder on)' : ''}`).join('\n');
+  },
+  remove_todo({ text }) {
+    const doc = loadNotes();
+    const q = String(text || '').toLowerCase().trim();
+    const hit = q && (doc.todos.find((t) => t.text.toLowerCase() === q) || doc.todos.find((t) => t.text.toLowerCase().includes(q) || q.includes(t.text.toLowerCase())));
+    if (!hit) return `I couldn't find "${text}" on the to-do list.`;
+    doc.todos = doc.todos.filter((t) => t !== hit);
+    saveNotesDoc(doc, 'todo');
+    return `Removed "${hit.text}" from your to-do list.`;
+  },
+  add_note({ title, text }) {
+    const ti = clip(String(title || '').trim() || 'Note', 120);
+    const body = String(text || '').replace(/\\n/g, '\n').trim();
+    const doc = loadNotes();
+    const old = doc.notes.find((n) => n.title.trim().toLowerCase() === ti.toLowerCase());
+    if (old) { old.body = clip(old.body ? `${old.body.replace(/\s+$/, '')}\n${body}` : body, 20000); old.updated = Date.now(); }
+    else doc.notes.push({ id: crypto.randomUUID(), title: ti, body: clip(body, 20000), updated: Date.now() });
+    saveNotesDoc(doc, 'notes', old ? old.id : doc.notes[doc.notes.length - 1].id);
+    return old ? `Added that to your "${old.title}" note.` : `Wrote a new note: "${ti}".`;
+  },
+  read_notes({ title } = {}) {
+    const { notes } = loadNotes();
+    if (!notes.length) return 'There are no notes yet.';
+    const q = String(title || '').toLowerCase().trim();
+    const n = q && (notes.find((x) => x.title.toLowerCase() === q) || notes.find((x) => x.title.toLowerCase().includes(q)));
+    if (n) return `Note "${n.title}":\n${n.body.slice(0, 3000) || '(empty)'}`;
+    return `${q ? `No note called "${title}". ` : ''}Notes: ${notes.map((x) => `"${x.title || 'Untitled'}"`).join(', ')}.`;
   },
   close_app: (args) => apps.closeApp(args),
   list_open_apps: () => apps.listOpenApps(),
@@ -724,6 +877,8 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
     if (config.hermesAutostart && !IS_TEST) hermes.startGateway(log).then((up) => log('hermes gateway', up ? 'up' : 'not answering'));
     setInterval(() => ensureHermes('watchdog'), 45000);
     watchOwnFiles();
+    scheduleTodoReminders(loadNotes());
+    log('to-do reminders scheduled:', loadNotes().todos.filter((t) => t.remind).length);
     setInterval(() => {
       if (!alive() || hidden) return;
       const p = screen.getCursorScreenPoint();

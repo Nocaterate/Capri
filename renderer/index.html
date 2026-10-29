@@ -25,6 +25,42 @@
     <input id="typeinput" type="text" placeholder="type a message… (Enter to send, Esc to close)" maxlength="500" />
   </form>
 
+  <div id="holo" class="holo-wrap interactive" hidden>
+    <div class="holo" role="dialog" aria-label="Notes and to-do list">
+      <div class="holo-scan"></div>
+      <div class="holo-head">
+        <span class="holo-title">CAPRI // NOTES &amp; TO-DO</span>
+        <div class="holo-tabs"><button type="button" class="holo-tab on" data-tab="notes">NOTES</button><button type="button" class="holo-tab" data-tab="todo">TO-DO LIST</button></div>
+        <button type="button" id="holo-x" class="holo-x" title="Close (Esc)" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="holo-body">
+        <div id="holo-notes" class="h-notes">
+          <div class="h-list"><button type="button" id="h-new" class="h-new">+ New note</button><div id="h-notelist" class="h-notelist"></div></div>
+          <div id="h-editor" class="h-editor" hidden>
+            <input id="h-title" placeholder="Title" maxlength="120" />
+            <textarea id="h-text" placeholder="Write anything…" maxlength="20000"></textarea>
+            <div class="h-row"><span id="h-saved" class="h-saved ok">● Saved</span><span id="h-delnote"></span></div>
+          </div>
+          <div id="h-empty" class="h-empty" hidden><span>No notes yet.<br />Hit <b>+ New note</b> to write one.</span></div>
+        </div>
+        <div id="holo-todo" hidden>
+          <form id="h-add" class="h-add" autocomplete="off">
+            <div class="h-field"><input id="h-todo" maxlength="50" placeholder="What do you need to do?" /><span id="h-count" class="h-count">0/50</span></div>
+            <input id="h-time" class="h-time" type="time" aria-label="Time" />
+            <button type="button" id="h-bell" class="h-bell" title="Remind me"></button>
+            <button type="submit" class="h-primary">Add</button>
+          </form>
+          <div class="h-tablewrap">
+            <table><thead><tr><th>TO-DO</th><th>TIME</th><th>REMIND ME</th><th>DELETE</th></tr></thead><tbody id="h-rows"></tbody></table>
+            <div id="h-none" class="h-none">Nothing to do yet. Add one above.</div>
+          </div>
+          <small id="h-hint" class="h-hint">Max 50 letters per to-do · the bell glows when Capri will remind you</small>
+        </div>
+      </div>
+      <div class="holo-foot"><span>Esc or ✕ to close</span><span class="h-dot"></span><span>Saved on this PC</span></div>
+    </div>
+  </div>
+
   <script>
     window.__errors = [];
     window.addEventListener('error', (e) => window.__errors.push(String(e.message)));
