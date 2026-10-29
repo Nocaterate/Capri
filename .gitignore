@@ -1,8 +1,10 @@
 # dependencies (start.bat installs them)
 node_modules/
 
-# private notes, never publish
+# local only: Claude's notes and the sprite tools
+CLAUDE.md
 CLAUDE.local.md
+tools/
 
 # voice clips are not shipped: only the README in that folder
 assets/capri/voice-samples/*

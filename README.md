@@ -34,6 +34,19 @@ Capri appears in the bottom-right corner of your screen with a lightning strike,
 
 Everything else (her own cloned voice, Spotify, Discord bot, Hermes Agent, other AI providers) is optional and explained below.
 
+## What she can do on your PC
+Capri is an agent: the AI decides when to use these tools, so just ask in normal words.
+
+| Tool | Example |
+|---|---|
+| Open / close apps, list what's open | "Open Discord", "Close Chrome", "What apps are open?" |
+| Open websites, search the web | "Open YouTube and search for lofi music" |
+| Media keys and volume | "Pause", "Next song", "Turn the volume down" |
+| Spotify (exact songs, queue, shuffle) | "Play Espresso by Sabrina Carpenter", "Queue Blinding Lights" |
+| Reminders | "Remind me in 10 minutes to take the laundry out" |
+
+She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
+
 ### Privacy
 Your keys, tokens, settings, chat memory and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself. Never share your `config.json` or post your keys in issues.
 
@@ -191,16 +204,6 @@ A GTX 1650 (4 GB) is enough for a small model:
 - **Discord bot says "Message Content Intent":** turn that switch on in Developer Portal → Bot, save, then click **Save & start the bot** again.
 - **Discord bot doesn't answer:** she only answers when mentioned, replied to, or DMed, and only while the Capri app is running.
 - **Hotkey doesn't react:** another app may already use that combination. Change it in Settings → Shortcuts.
-
-## Changing her design
-The sprite is drawn by `tools/capri_sprite.py`: colours, shapes, poses, eyes and mouths. Edit it, then run:
-
-```
-pip install pillow
-python tools/capri_sprite.py
-```
-
-This rewrites `assets/capri/sheet.png`, `sheet.json`, `sheet.js` and the app icons.
 
 ## Structure
 - `main.js`: transparent overlay window, tray, hotkeys, desktop actions, sounds folder, Hermes connection
