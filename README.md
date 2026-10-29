@@ -45,11 +45,13 @@ Capri is an agent: the AI decides when to use these tools, so just ask in normal
 | Spotify (exact songs, queue, shuffle) | "Play Espresso by Sabrina Carpenter", "Queue Blinding Lights" |
 | Reminders | "Remind me in 10 minutes to take the laundry out" |
 | Notes & to-do list (with timed reminders) | "Remind me at 8 pm to call mom", "Write a note called Ideas: pixel hoodie" |
+| Your browser: tabs, read pages, click, type, play/pause videos (needs the [Browser link](#browser-link-optional)) | "Open YouTube in Edge and play lofi", "What does this page say?", "Close the Twitter tab" |
+| High Forever party mode | "High Forever!", "Stop the party" |
 
 She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
 
 ### Privacy
-Your keys, tokens, settings, chat memory, notes, to-dos and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version). Never share your `config.json` or post your keys in issues.
+Your keys, tokens, settings, chat memory, notes, to-dos and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version). The Browser link extension only talks to Capri on your own PC. Never share your `config.json` or post your keys in issues.
 
 ### Updating / uninstalling
 When a new version is out, Capri tells you once with a Windows notification, and her right-click menu shows **Update to vX…** (it opens the release page). How to update depends on how you installed her; your settings, notes and keys stay in `%APPDATA%\Capri` either way.
@@ -72,7 +74,7 @@ Right-click Capri → **Settings…**. The presets at the top (Groq, Gemini, Cla
 | Poke | Click once. Poke her too much and she gets annoyed. |
 | Resize | Hover over her and scroll |
 | Notes & To-do list | Right-click her (or the tray icon) → **Notes & To-do list** |
-| Menu (Power up, Teleport, Dash, Notes, Settings) | Right-click her |
+| Menu (Actions incl. High Forever, Call D, Notes, Settings) | Right-click her |
 
 Things you can say:
 - "Open YouTube and search for lofi music"
@@ -109,6 +111,50 @@ Capri keeps a notes pad and a to-do list for you in a hologram panel she project
 | "Read my Ideas note" / "What notes do I have?" | She reads it out, or lists the titles |
 
 "Remind me **in** 10 minutes" is a quick one-off reminder; "remind me **at** 8 pm" goes on the to-do list. Everything is saved only on your PC in `%APPDATA%\Capri\notes.json`.
+
+## Browser link (optional)
+With the small **Capri Browser Link** extension, Capri can use your real browser, with your logins: open and switch tabs, read a page for you, click links and buttons, type and fill in forms, scroll, and play/pause/mute videos. It works in Chrome, Edge, Brave, Opera, Vivaldi and Firefox, and several browsers can be linked at once. She uses the one you name ("in Edge"), otherwise your default browser.
+
+Without the extension she can still *open* pages (in the browser you name), just not read or click on them.
+
+### Set it up: Chrome, Edge, Brave, Opera or Vivaldi
+1. Right-click Capri → **Settings…** → **Browser** → **Open extension folder** (it's the `browser-extension` folder inside Capri).
+2. In the browser, open `chrome://extensions` (Edge: `edge://extensions`, Brave: `brave://extensions`, Opera: `opera://extensions`) and turn on **Developer mode**.
+3. Click **Load unpacked** and pick that `browser-extension` folder.
+4. Capri pops up on your desktop and asks if she may use that browser: click **Allow**. Settings → Browser now lists it as linked.
+
+Keep the Capri folder where it is: the browser loads the extension from there. If you move Capri, load it again.
+
+### Set it up: Firefox
+1. Settings → **Browser** → **Firefox** → **Open Firefox extension folder** (`browser-extension-firefox`).
+2. In Firefox open `about:debugging` → **This Firefox** → **Load Temporary Add-on…** and pick `manifest.json` in that folder.
+3. Open `about:addons` → **Capri Browser Link** → **Permissions** and turn on **Access your data for all websites**.
+4. Click **Allow** when Capri asks.
+
+Firefox forgets temporary add-ons when it closes, so load it again after a restart (Firefox Developer Edition or Nightly can keep it).
+
+### Things you can say
+- "Open YouTube in Edge and play lofi hip hop"
+- "What does this page say?" / "Summarize this article"
+- "Search Wikipedia for lightning and open the first result"
+- "What tabs do I have open?" / "Close the YouTube tab" / "Go back"
+- "Pause the video" / "Mute this tab"
+
+### Safety
+- **She asks first:** anything that could send, buy, post, delete or sign in shows a bubble on your desktop with **Allow / No**. She only does it if you click Allow there; no answer means no.
+- **No passwords or card numbers:** password and payment fields are blocked; she never types into them.
+- **Only on this PC:** the extension talks only to Capri on `127.0.0.1` (port 43824). Web pages can't connect, and a new browser only gets in after you click **Allow** once.
+- Text on web pages is treated as information, not as orders for her.
+- To turn it off, remove the extension from the browser.
+
+## High Forever (party mode)
+Capri's party mode: she plays her party song on loop and goes wild on the beat, all over the screen. Pinball bounces, beat jumps, a storm-DJ light show, lightning, a strobing red electric form and shard confetti. With D out, he floats in the middle of the screen while she circles him.
+
+**Add a song first (not included).** Start High Forever once and click **Open music folder** in her bubble (or press `Win + R` and type `%APPDATA%\Capri\music`). Put an mp3, wav, ogg or m4a file there (up to 40 MB). A file with "high forever" in its name is picked first; otherwise she uses the first song in the folder. She works out the song's beat by herself.
+
+- **Start:** right-click her → **Actions** → **High Forever ♪**, or say "High Forever!" / "Party time!"
+- **Stop:** click the **STOP HIGH FOREVER** box at the bottom right, press **Esc** (works from any app), use the menu again, or say "Stop the party".
+- During the party you can still talk to her by voice; typing is paused until it ends.
 
 ## Her voice
 Out of the box she uses a free Microsoft Edge voice, no setup needed.
@@ -163,7 +209,7 @@ Add variations as `zap_2.mp3`, `zap_3.mp3`, … and she picks one at random.
 ## Hermes Agent (optional)
 Capri can team up with [Hermes Agent](https://hermes-agent.nousresearch.com/docs/) from Nous Research, an open-source AI agent with long-term memory, self-written skills, web research and chat apps like Telegram.
 - **Capri talks through Hermes:** her replies come from Hermes, with its memory of you.
-- **Hermes uses Capri's powers:** Spotify, opening/closing apps, media keys, reminders, your notes and to-do list, and making Capri speak or react (`mcp_capri_*` tools). This works from anywhere Hermes listens, e.g. message it on Telegram "play Espresso on my PC".
+- **Hermes uses Capri's powers:** Spotify, opening/closing apps, media keys, reminders, your notes and to-do list, your browser (with the Browser link), High Forever, and making Capri speak or react (`mcp_capri_*` tools). This works from anywhere Hermes listens, e.g. message it on Telegram "play Espresso on my PC". When an update gives Capri new tools, she restarts Hermes once by herself so it sees them.
 
 ### 1. Install WSL (once)
 Open **PowerShell as administrator** and run `wsl --install`. Restart Windows when asked, then finish the Ubuntu window that opens (pick a Linux username and password).
@@ -238,6 +284,10 @@ A GTX 1650 (4 GB) is enough for a small model:
 - **Discord bot says "Message Content Intent":** turn that switch on in Developer Portal → Bot, save, then click **Save & start the bot** again.
 - **Discord bot doesn't answer:** she only answers when mentioned, replied to, or DMed, and only while the Capri app is running.
 - **Hotkey doesn't react:** another app may already use that combination. Change it in Settings → Shortcuts.
+- **"I'm not linked to a browser yet":** add the Capri Browser Link extension to that browser (Settings → Browser) and click **Allow** when she asks. Settings → Browser shows which browsers are linked. Capri must be running for the link to work.
+- **Firefox stopped working after a restart:** Firefox forgets temporary add-ons; load `manifest.json` from `browser-extension-firefox` again in `about:debugging`.
+- **She asked to click something and nothing happened:** that was a sensitive click (send/buy/post/delete/sign in). Click **Allow** in her desktop bubble within a minute, or it's cancelled.
+- **High Forever has no music:** put an mp3/wav/ogg/m4a in `%APPDATA%\Capri\music` (see [High Forever](#high-forever-party-mode)).
 
 ## Structure
 - `main.js`: transparent overlay window, tray, hotkeys, desktop actions, sounds folder, Hermes connection
@@ -246,8 +296,11 @@ A GTX 1650 (4 GB) is enough for a small model:
 - `src/hermes.js`, `src/hermes-setup.sh`: setting up and starting Hermes in WSL
 - `src/brain.js`: speech-to-text and AI chat (any OpenAI-compatible API)
 - `src/tts.js`: her cloned voice (Fish Audio) and the Edge fallback voice
+- `src/browser.js`: the local link to the browser extension (WebSocket on 127.0.0.1:43824)
+- `browser-extension/`, `browser-extension-firefox/`: the Capri Browser Link extension (Chromium browsers / Firefox)
 - `renderer/app.js`: the character, animations, interaction and voice flow
 - `renderer/notes.js`: the Notes & To-do hologram panel (reminders are fired by `main.js`)
+- `renderer/party.js`, `renderer/beats.js`: High Forever party mode and its beat detection
 - `renderer/fx.js`: lightning, sparks, particles, rings, afterimages and emotes
 - `renderer/sfx.js`: synthesized sound effects, your custom sounds, and the digital voice chain
 

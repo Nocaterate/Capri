@@ -14,6 +14,7 @@ const mcpServer = require('./src/mcp-server');
 const spotify = require('./src/spotify');
 const apps = require('./src/apps');
 const discord = require('./src/discord');
+const browserLink = require('./src/browser');
 
 const IS_TEST = process.env.COMPANION_TEST === '1';
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -94,9 +95,12 @@ const DEFAULT_CONFIG = {
   discordVoice: true, // speak replies in a voice channel after /join
   discordAvatarSet: false,
   dOut: false, // D (her companion) is out next to her
+  // browsers (the Capri Browser Link extension)
+  browserLink: true, // listen for the extension on 127.0.0.1:43824
+  browserLinks: [], // extension IDs you allowed once
   updateNotified: '', // newest version she already told the user about
 };
-const SECRET_KEYS = ['spotifyRefreshToken', 'spotifyAccessToken', 'spotifyExpires', 'hermesMcpToken', 'hermesApiKey', 'hermesPrevBrain', 'hermesBrain', 'discordAvatarSet', 'discordOwnerLocks'];
+const SECRET_KEYS = ['spotifyRefreshToken', 'spotifyAccessToken', 'spotifyExpires', 'hermesMcpToken', 'hermesApiKey', 'hermesPrevBrain', 'hermesBrain', 'discordAvatarSet', 'discordOwnerLocks', 'browserLinks'];
 
 function loadJSON(p, fallback) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return fallback; }
@@ -149,6 +153,20 @@ function createOverlay() {
   // Alt+F4 / a stray close: hide her instead of destroying her window
   overlay.on('close', (e) => { if (!appQuitting) { e.preventDefault(); toggleHidden(true); } });
   // if her page crashes, bring her back
+  // her page's errors go to the activity log (otherwise a broken feature fails silently)
+  overlay.webContents.on('console-message', (e, lvl, msg, line, src) => {
+    const level = typeof lvl === 'number' ? lvl : (e && e.level);
+    const text = typeof msg === 'string' ? msg : (e && e.message);
+    if (level === 3 || level === 'error') log('overlay error:', String(text).slice(0, 400), src ? `(${String(src).split('/').pop()}:${line})` : '');
+  });
+  // her page reloaded (an update): a party that was running is gone, so let Esc and the menu go back to normal
+  overlay.webContents.on('did-start-loading', () => {
+    if (!partyOn) return;
+    partyOn = false;
+    try { if (globalShortcut.isRegistered('Escape')) globalShortcut.unregister('Escape'); } catch { /* fine */ }
+    if (tray) buildTray();
+  });
+  overlay.webContents.on('preload-error', (_e, p, err) => log('preload error', err && err.message));
   overlay.webContents.on('render-process-gone', (_e, d) => {
     log('overlay renderer gone', d && d.reason);
     if (!appQuitting && d && d.reason !== 'clean-exit') setTimeout(() => { if (alive()) overlay.reload(); }, 1000);
@@ -195,18 +213,23 @@ function menuTemplate() {
   return [
     ...(newRelease ? [{ label: `⚡ Update to v${newRelease.version}…`, click: () => shell.openExternal(newRelease.url) }, { type: 'separator' }] : []),
     { label: `Talk (voice)    ${config.hotkeyTalk}`, click: () => { toggleHidden(false); send('talk-toggle'); } },
-    { label: `Type a message    ${config.hotkeyType}`, click: () => focusTyping() },
+    partyOn
+      ? { label: 'Type a message (voice only during High Forever)', enabled: false }
+      : { label: `Type a message    ${config.hotkeyType}`, click: () => focusTyping() },
     { type: 'separator' },
     {
       label: 'Actions',
       // with D out she gets duo moves; on her own, her solo ones
-      submenu: (config.dOut ? [
+      submenu: [
+        { label: partyOn ? 'Stop High Forever' : 'High Forever ♪', click: () => { toggleHidden(false); send('action', partyOn ? 'high_forever_stop' : 'high_forever'); } },
+        { type: 'separator' },
+        ...(config.dOut ? [
         ['Power up together', 'duo_charge'], ['Loom behind D', 'loom'], ['Back to back', 'b2b'], ['Perch on D', 'perch'],
         ['Electric coil around D', 'coil'], ['Chill together', 'chill'], { type: 'separator' },
         ['Dash together', 'dash'], ['Teleport together', 'teleport'], ['Back to the corner', 'recenter'],
       ] : [
         ['Power up!', 'charge'], ['Teleport', 'teleport'], ['Dash', 'dash'], ['Chill (lounge)', 'chill'], ['Back to the corner', 'recenter'],
-      ]).map((it) => (Array.isArray(it) ? { label: it[0], click: () => send('action', it[1]) } : it)),
+      ]).map((it) => (Array.isArray(it) ? { label: it[0], click: () => send('action', it[1]) } : it))],
     },
     { label: config.dOut ? 'Uncall D' : 'Call D', click: () => setConfig({ dOut: !config.dOut }) },
     { label: notesOpen ? 'Close notes & to-do' : 'Notes & To-do list', click: () => { toggleHidden(false); send('notes-toggle'); } },
@@ -227,6 +250,7 @@ function send(channel, payload) {
 function focusTyping() {
   toggleHidden(false);
   if (!alive()) return;
+  if (partyOn) { send('type-open'); return; }   // the overlay says why typing is off mid-party
   setIgnoreMouse(false);
   overlay.focus();
   send('type-open');
@@ -238,6 +262,8 @@ function setConfig(patch) {
   config = { ...config, ...patch };
   saveJSON(CONFIG_PATH, config);
   send('config', publicConfig());
+  // an open Settings window hears about changes made elsewhere (e.g. resizing her with the mouse wheel)
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('config', publicConfig());
   if ('openAtLogin' in patch && !IS_TEST) app.setLoginItemSettings({ openAtLogin: !!config.openAtLogin });
   if (['hotkeyTalk', 'hotkeyType', 'hotkeyHide'].some((k) => k in patch)) registerHotkeys();
   if ('hermesBridge' in patch || 'hermesMcpPort' in patch) syncToolServer();
@@ -283,6 +309,60 @@ function cleanNotes(doc, prev) {
   return { notes, todos };
 }
 // "20:00", "8:30 pm", "8pm", "0815" → "HH:MM" ('' when there is no time, null when it can't be read)
+// ---------- browsers ----------
+// Clicks and submits that could send, buy, post or delete something come back as needsConfirm: Capri asks you
+// on the desktop (a bubble with Allow / No), and only does it if you say yes there.
+const confirmWaits = new Map();
+let confirmSeq = 0;
+function askUser(text, seconds = 60) {
+  return new Promise((resolve) => {
+    if (!alive()) return resolve(false);
+    const id = ++confirmSeq;
+    const timer = setTimeout(() => { confirmWaits.delete(id); send('confirm-cancel', id); resolve(false); }, seconds * 1000);
+    confirmWaits.set(id, (ok) => { clearTimeout(timer); confirmWaits.delete(id); resolve(!!ok); });
+    toggleHidden(false);
+    send('confirm-ask', { id, text, seconds });
+  });
+}
+ipcMain.on('confirm-answer', (_e, { id, ok } = {}) => { const f = confirmWaits.get(id); if (f) f(ok); });
+
+const browsers = browserLink.createBrowserLink({
+  port: 43824,
+  log: (...a) => log(...a),
+  isAllowed: (id) => (config.browserLinks || []).includes(id),
+  allow: (id) => { config.browserLinks = [...new Set([...(config.browserLinks || []), id])]; saveJSON(CONFIG_PATH, config); },
+  ask: (text) => askUser(text, 120),
+  onState: (s) => { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('browser-state', s); },
+});
+function notLinked(r, browser) {
+  if (r.error !== 'NOT_CONNECTED') return `That didn't work: ${r.error}`;
+  const st = browsers.status();
+  if (browser && st.browsers.length) return `${browser} isn't linked to me (linked: ${st.browsers.map((b) => b.name).join(', ')}). Add the Capri Browser Link extension there first (Settings → Browser).`;
+  return "I'm not linked to a browser yet. Add the Capri Browser Link extension to your browser first (Settings → Browser), then I can read pages, click and type.";
+}
+async function confirmable(cmd, args, browser) {
+  let r = await browsers.call(cmd, args, { browser });
+  if (r.error) return notLinked(r, browser);
+  if (r.needsConfirm) {
+    const tabs = await browsers.call('tabs', {}, { browser });
+    const cur = (tabs.tabs || []).find((t) => (args.tabId ? t.tabId === Number(args.tabId) : t.active));
+    const where = cur ? browserLink.host(cur.url) : r.browser;
+    const ok = await askUser(`Can I ${r.what} on ${where}?`);
+    log('browser confirm:', r.what, where, ok ? 'allowed' : 'declined');
+    if (!ok) return `I didn't ${r.what}: the user said no (or didn't answer on the PC). Don't try it again unless they ask.`;
+    r = await browsers.call(cmd, { ...args, force: true }, { browser });
+    if (r.error) return notLinked(r, browser);
+  }
+  if (cmd === 'click') return `Clicked "${r.what}".${r.tab ? ` Now on "${r.tab.title}".` : ''} Read the page again before clicking anything else.`;
+  return `Typed it${r.submitted ? ' and pressed Enter' : ''}.${r.tab ? ` Now on "${r.tab.title}".` : ''}`;
+}
+ipcMain.handle('browser-status', () => browsers.status());
+ipcMain.handle('open-extension-folder', async (_e, which) => {
+  const dir = path.join(__dirname.replace(/app\.asar$/, 'app.asar.unpacked'), which === 'firefox' ? 'browser-extension-firefox' : 'browser-extension');
+  await shell.openPath(dir);
+  return dir;
+});
+
 function parseClock(v) {
   if (v == null || String(v).trim() === '') return '';
   const m = String(v).trim().toLowerCase().match(/^(\d{1,2})(?:[:.h]?(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?$/);
@@ -339,6 +419,41 @@ ipcMain.handle('notes-save', (_e, doc) => {
   return clean;
 });
 ipcMain.on('notes-state', (_e, open) => { notesOpen = !!open; if (tray) buildTray(); });
+
+// ---------- High Forever (party mode) ----------
+// Her party song lives in <userData>/music (never shipped): any mp3/wav/ogg/m4a; one with "high forever" in
+// its name wins. While the party runs, Esc anywhere stops it (the stop box on screen does too).
+let partyOn = false;
+const MUSIC_DIR = path.join(USER_DIR, 'music');
+function partySongPath() {
+  let files = [];
+  try { files = fs.readdirSync(MUSIC_DIR).filter((f) => SOUND_EXT.test(f)).sort(); } catch { return null; }
+  const pick = files.find((f) => /high.?forever/i.test(f)) || files[0];
+  return pick ? path.join(MUSIC_DIR, pick) : null;
+}
+ipcMain.handle('party-song', () => {
+  const p = partySongPath();
+  if (!p) return null;
+  try {
+    if (fs.statSync(p).size > 40 * 1024 * 1024) return null;
+    const buf = fs.readFileSync(p);
+    return { name: path.basename(p), bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) };
+  } catch (e) { log('party song unreadable', e.message); return null; }
+});
+ipcMain.handle('open-music-folder', async () => {
+  fs.mkdirSync(MUSIC_DIR, { recursive: true });
+  await shell.openPath(MUSIC_DIR);
+  return MUSIC_DIR;
+});
+ipcMain.on('party-state', (_e, on) => {
+  partyOn = !!on;
+  log('high forever', partyOn ? 'on' : 'off');
+  try {
+    if (partyOn && !globalShortcut.isRegistered('Escape')) globalShortcut.register('Escape', () => send('action', 'high_forever_stop'));
+    if (!partyOn && globalShortcut.isRegistered('Escape')) globalShortcut.unregister('Escape');
+  } catch (e) { log('esc shortcut', e.message); }
+  if (tray) buildTray();
+});
 ipcMain.on('focus-overlay', () => { if (alive()) { setIgnoreMouse(false); overlay.focus(); } });
 
 // ---------- new version check ----------
@@ -613,6 +728,11 @@ const actions = {
     reminders.add(t);
     return `Reminder set for ${m} minutes from now: ${message}`;
   },
+  high_forever({ on = true } = {}) {
+    toggleHidden(false);
+    send('action', on === false ? 'high_forever_stop' : 'high_forever');
+    return on === false ? 'Party over. Phew!' : 'High Forever, let\'s go!';
+  },
   // her Notes & To-do list (the hologram panel)
   add_todo({ text, time, remind }) {
     const t = clip(String(text || '').trim(), 50);
@@ -658,6 +778,53 @@ const actions = {
     const n = q && (notes.find((x) => x.title.toLowerCase() === q) || notes.find((x) => x.title.toLowerCase().includes(q)));
     if (n) return `Note "${n.title}":\n${n.body.slice(0, 3000) || '(empty)'}`;
     return `${q ? `No note called "${title}". ` : ''}Notes: ${notes.map((x) => `"${x.title || 'Untitled'}"`).join(', ')}.`;
+  },
+  // her browsers, through the Capri Browser Link extension (see src/browser.js)
+  async browser_tabs({ browser } = {}) {
+    const r = await browsers.call('tabs', {}, { browser });
+    if (r.error) return notLinked(r, browser);
+    return `${r.browser} tabs:\n${(r.tabs || []).map(browserLink.tabLine).join('\n') || '(none)'}`;
+  },
+  async browser_open({ url, browser, new_tab = true } = {}) {
+    const r = await browsers.call('open', { url, newTab: new_tab !== false }, { browser });
+    if (r.error === 'NOT_CONNECTED') {
+      // not linked: still open it, in the browser they named (or the default one)
+      const u = /^[a-z]+:\/\//i.test(url || '') ? url : /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(url || '') ? `https://${url}` : `https://www.google.com/search?q=${encodeURIComponent(url || '')}`;
+      try { const p = new URL(u); if (!/^https?:$/.test(p.protocol)) return 'I only open normal web pages.'; } catch { return 'That address looks wrong.'; }
+      const key = browsers.browserKey(browser);
+      const ok = key ? await browsers.launch(key, u) : (shell.openExternal(u), true);
+      if (!ok) return `I couldn't start ${browser}. Is it installed?`;
+      return `Opened ${browserLink.host(u) || u}${key ? ` in ${browsers.names[key]}` : ''}. (I can't read or click there until the Capri Browser Link extension is added to that browser: Settings → Browser.)`;
+    }
+    if (r.error) return `Couldn't open it: ${r.error}`;
+    return `Opened "${(r.tab && r.tab.title) || url}" in ${r.browser}.`;
+  },
+  async browser_tab({ tab_id, action = 'focus', browser } = {}) {
+    const r = await browsers.call('tab', { tabId: tab_id, action }, { browser });
+    if (r.error) return notLinked(r, browser);
+    if (r.closed) return `Closed the "${r.closed.title}" tab.`;
+    return { focus: 'Switched to', back: 'Went back:', forward: 'Went forward:', reload: 'Reloaded' }[action] + ` "${(r.tab && r.tab.title) || 'the tab'}".`;
+  },
+  async browser_read({ tab_id, browser } = {}) {
+    const r = await browsers.call('read', { tabId: tab_id, max: 6000 }, { browser });
+    if (r.error) return notLinked(r, browser);
+    return browserLink.describePage(r);
+  },
+  async browser_click({ element, tab_id, browser } = {}) {
+    return confirmable('click', { element, tabId: tab_id }, browser);
+  },
+  async browser_type({ element, text, submit = false, tab_id, browser } = {}) {
+    return confirmable('type', { element, text, submit, tabId: tab_id }, browser);
+  },
+  async browser_scroll({ direction = 'down', tab_id, browser } = {}) {
+    const r = await browsers.call('scroll', { direction, tabId: tab_id }, { browser });
+    if (r.error) return notLinked(r, browser);
+    return `Scrolled ${direction}.`;
+  },
+  async browser_media({ action = 'toggle', tab_id, browser } = {}) {
+    const r = await browsers.call('media', { action, tabId: tab_id }, { browser });
+    if (r.error) return notLinked(r, browser);
+    return `The video is ${r.media} now.`;
   },
   close_app: (args) => apps.closeApp(args),
   list_open_apps: () => apps.listOpenApps(),
@@ -908,9 +1075,22 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
     registerHotkeys();
     syncToolServer();
     if (config.discordEnabled && config.discordToken && !IS_TEST) restartDiscord();
-    if (config.hermesAutostart && !IS_TEST) hermes.startGateway(log).then((up) => log('hermes gateway', up ? 'up' : 'not answering'));
+    if (config.hermesAutostart && !IS_TEST) hermes.startGateway(log).then(async (up) => {
+      log('hermes gateway', up ? 'up' : 'not answering');
+      // Capri got new tools in an update: restart Hermes once so it sees them (it only reads them when it starts)
+      const tools = crypto.createHash('sha1').update(brain.TOOLS.map((t) => t.function.name).join(',')).digest('hex').slice(0, 12);
+      if (up && config.hermesBridge && config.hermesToolsSeen !== tools) {
+        log('capri has new tools for hermes: restarting the hermes gateway');
+        connecting = true;
+        const ok = await hermes.restartGateway(log).catch(() => false);
+        connecting = false;
+        log('hermes restarted for new tools:', ok ? 'ok' : 'not answering');
+        if (ok) { config.hermesToolsSeen = tools; saveJSON(CONFIG_PATH, config); }
+      }
+    });
     setInterval(() => ensureHermes('watchdog'), 45000);
     watchOwnFiles();
+    if (config.browserLink !== false && !IS_TEST) browsers.start();
     scheduleTodoReminders(loadNotes());
     log('to-do reminders scheduled:', loadNotes().todos.filter((t) => t.remind).length);
     if (!IS_TEST) { setTimeout(checkForUpdate, 20000); setInterval(checkForUpdate, 12 * 3600 * 1000); }
@@ -926,7 +1106,7 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
       require(process.env.COMPANION_TEST_SCRIPT || './test/selftest')(overlay, actions);
     }
   });
-  app.on('will-quit', () => { globalShortcut.unregisterAll(); if (toolServer) toolServer.close(); });
+  app.on('will-quit', () => { globalShortcut.unregisterAll(); if (toolServer) toolServer.close(); browsers.stop(); });
   let quitting = false;
   app.on('before-quit', (e) => {
     if (quitting) return;

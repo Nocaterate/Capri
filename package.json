@@ -1,16 +1,23 @@
 {
   "name": "capri",
-  "version": "1.1.0",
-  "description": "Capri — electrical AI pixel desktop companion",
+  "version": "1.2.0",
+  "description": "Capri \u2014 electrical AI pixel desktop companion",
   "main": "main.js",
-  "author": "",
+  "author": "Nocaterate",
   "license": "MIT",
   "dependencies": {
     "@discordjs/voice": "^0.19.2",
     "@noble/ciphers": "^2.4.0",
     "discord.js": "^14.27.0",
     "msedge-tts": "^2.1.1",
-    "opusscript": "^0.0.8"
+    "opusscript": "^0.0.8",
+    "ws": "^8.22.0"
   },
-  "productName": "Capri"
+  "productName": "Capri",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "45.0.0"
+  }
 }

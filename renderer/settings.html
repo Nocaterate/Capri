@@ -206,6 +206,29 @@
     </section>
 
     <section>
+      <h2>Browser</h2>
+      <small>Let Capri use your browser: open and switch tabs, read pages for you, click, type and fill forms, play/pause videos.
+        She works in your real browser with your logins. Anything that could send, buy, post or delete asks you first on the desktop,
+        and she never types passwords or card numbers. Ask her things like <i>"open YouTube in Edge and play lofi"</i> or <i>"what does this page say?"</i>.</small>
+      <div id="browserStatus" class="status-list"></div>
+      <b class="sub">Chrome, Edge, Brave, Opera or Vivaldi</b>
+      <ol class="steps">
+        <li>Click <b>Open extension folder</b> below.</li>
+        <li>In the browser, open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>) and turn on <b>Developer mode</b>.</li>
+        <li>Click <b>Load unpacked</b> and pick that folder (<code>browser-extension</code>).</li>
+        <li>Capri pops up and asks if she may use that browser: click <b>Allow</b>.</li>
+      </ol>
+      <div class="row"><button type="button" id="extOpen">Open extension folder</button></div>
+      <details>
+        <summary>Firefox</summary>
+        <small>Open <code>about:debugging</code> → <b>This Firefox</b> → <b>Load Temporary Add-on</b> and pick <code>manifest.json</code> in the
+          <code>browser-extension-firefox</code> folder. Then in <code>about:addons</code> → Capri Browser Link → <b>Permissions</b>, allow
+          <b>Access your data for all websites</b>. Firefox forgets temporary add-ons when it closes, so load it again after a restart.</small>
+        <div class="row"><button type="button" id="extOpenFx">Open Firefox extension folder</button></div>
+      </details>
+    </section>
+
+    <section>
       <h2>Discord bot</h2>
       <small>Put Capri on your Discord server. Anyone can chat with her (mention <b>@Capri</b>, reply to her, or DM her);
         only you can make her play music or control this PC. She runs while the Capri app is open.</small>

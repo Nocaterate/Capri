@@ -6,6 +6,7 @@ import META from '../assets/capri/sheet.js';
 import { FX } from './fx.js';
 import * as sfx from './sfx.js';
 import { initNotes } from './notes.js';
+import { initParty } from './party.js';
 
 const api = window.companion;
 const $ = (id) => document.getElementById(id);
@@ -440,8 +441,9 @@ function duoAction(name) {
 }
 st.duo = duo;
 st.duoLift = 0;
-const dGround = () => H - st.pos.y;
-function dScreen(px, py) { return { x: duo.x + (px - DAX) * S, y: dGround() + (py - DAY) * S }; }
+const dGround = () => (duo.py != null ? duo.py : H - st.pos.y - (duo.air ? Math.sin(st.t * 1.7) * 1.5 * S : 0));   // High Forever: he floats on his own
+const DS = () => (st.party ? st.party.S0 : S);                  // and keeps his size while she grows and shrinks
+function dScreen(px, py) { const s = DS(); return { x: duo.x + (px - DAX) * s, y: dGround() + (py - DAY) * s }; }
 const duoShown = () => duo.shown && st.visible;
 const duoCoil = () => duoShown() && duo.coil > 0.5;
 
@@ -485,13 +487,14 @@ function pokeD() {
 }
 function overD(x, y) {
   if (!duoShown() || duo.arrive > 0.45 || duo.leave > 0) return false;
-  const sx = Math.floor((x - duo.x) / S + DAX), sy = Math.floor((y - dGround()) / S + DAY);
+  const s = DS(), sx = Math.floor((x - duo.x) / s + DAX), sy = Math.floor((y - dGround()) / s + DAY);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dAlpha(duo.frame, sx + dx, sy + dy) > 120) return true;
   return false;
 }
 
 function updateDuo(dt, now) {
   if (!duo.shown) { st.duoLift = lerp(st.duoLift, 0, Math.min(1, dt * 6)); return; }
+  if (st.party && duo.leave <= 0) { updateDuoParty(dt); return; }
   duo.arrive = Math.max(0, duo.arrive - dt / 0.9);
   duo.glitch = Math.max(0, duo.glitch - dt);
   if (duo.leave > 0) {
@@ -503,7 +506,7 @@ function updateDuo(dt, now) {
       const p = pick(all);
       if (p && Math.abs(p[1] - cut) < 4) { const s = dScreen(p[0], p[1]); fx.spark(s.x, s.y); }
     }
-    if (duo.leave <= 0) { duo.shown = false; duo.leave = 0; }
+    if (duo.leave <= 0) { duo.shown = false; duo.leave = 0; duo.py = null; }
   }
   // blink
   duo.nextBlink -= dt;
@@ -585,8 +588,14 @@ function updateDuo(dt, now) {
   if (duo.mode === 'b2b') f = 'folded';
   if (duo.mode === 'perch' || now < duo.pokeUntil) f = 'lookup';
   if ((duo.blinkT >= 0 || sleepy) && (f === 'normal' || f === 'spiked')) f = f === 'spiked' ? 'spiked_blink' : 'blink';
-  duo.frame = f;
+  // up in the air with her (above the taskbar): the floating pose, same face, with an electric aura
+  const air = st.pos.y > 4 * S && DUO.rects.float_normal;
+  if (air && !duo.air) { const g = dScreen(DAX, DH - 2); fx.burst(g.x, g.y, 12, { speed: 200, up: 80, life: 0.35, gravity: 0 }); sfx.crackle(0.15, 30); }
+  duo.air = !!air;
+  if (air) f = 'float_' + f;
+  duo.frame = DUO.rects[f] ? f : duo.air ? 'float_normal' : 'normal';
 
+  if (duo.air) dAura(dt);
   // her electricity all over him
   duo.sparkT -= dt;
   if (duo.sparkT <= 0 && duo.arrive < 0.2 && duo.leave <= 0) {
@@ -610,7 +619,7 @@ function updateDuo(dt, now) {
       }
     } else if (duo.mode === 'loom') {        // a bolt links his raised hand to hers
       duo.boltT = rand(0.08, 0.16);
-      const a = dScreen(...DUO.hand);
+      const a = dScreen(...(duo.air && DUO.floatHand ? DUO.floatHand : DUO.hand));
       const hands = frameMeta().hands;
       if (hands) { const b2 = toScreen(...hands[1]); fx.bolt(a.x, a.y, b2.x, b2.y, { life: rand(0.08, 0.14), rejitter: true, branches: 1 }); }
     } else if (duo.mode === 'b2b') {  // arcs where their backs meet
@@ -646,6 +655,7 @@ function drawCoil(front) {
 
 function drawD() {
   if (!duoShown()) return;
+  const S = DS();
   const name = duo.frame;
   const [rx, ry] = DUO.rects[name];
   const gx = snapD(duo.x - DAX * S), gy = snapD(dGround() - DAY * S);
@@ -672,6 +682,12 @@ function drawD() {
     const cut = Math.floor((1 - duo.leave) * DH);
     if (cut < DH) ctx.drawImage(dsheet, rx, ry + cut, DW, DH - cut, gx, gy + cut * S, DW * S, (DH - cut) * S);
   } else {
+    if (name.startsWith('float')) {                // electric aura: a flickering pink glow hugging his outline
+      ctx.globalAlpha = 0.4 + 0.3 * Math.random();
+      const glow = dTinted(name, Math.random() < 0.8 ? '#FF2E78' : '#FFB3D1');
+      for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, gx + ox * S, gy + oy * S, DW * S, DH * S);
+      ctx.globalAlpha = 1;
+    }
     ctx.drawImage(dsheet, rx, ry, DW, DH, gx, gy, DW * S, DH * S);
   }
   if (duo.coil > 0.05) drawCoil(true);
@@ -682,6 +698,50 @@ function drawD() {
     ctx.strokeStyle = '#FF1E68'; ctx.lineWidth = S; ctx.strokeRect(x - 5 * S, y - 8 * S, 10 * S, 12 * S);
     ctx.fillStyle = '#FFF0F6'; ctx.fillRect(x - S, y - 6 * S, 2 * S, 5 * S); ctx.fillRect(x - S, y + 0.5 * S, 2 * S, 2 * S);
   }
+}
+
+// floating D crackles: sparks all over his outline and little bolts snapping off him
+function dAura(dt) {
+  if (duo.arrive > 0.2 || duo.leave > 0) return;
+  duo.auraT = (duo.auraT || 0) - dt;
+  if (duo.auraT > 0) return;
+  duo.auraT = rand(0.08, 0.2);
+  const edge = dPixels(duo.frame)[1];
+  for (let i = 0; i < 3; i++) { const e = pick(edge); if (e) { const p = dScreen(e[0] + 0.5, e[1] + 0.5); fx.spark(p.x, p.y); } }
+  const e = pick(edge);
+  if (e) {
+    const p = dScreen(e[0] + 0.5, e[1] + 0.5), c = dScreen(DAX, DH - 40);
+    const ang = Math.atan2(p.y - c.y, p.x - c.x) + rand(-0.5, 0.5), len = rand(5, 13) * DS();
+    fx.bolt(p.x, p.y, p.x + Math.cos(ang) * len, p.y + Math.sin(ang) * len, { life: rand(0.06, 0.12), branches: Math.random() < 0.3 ? 1 : 0, rejitter: true });
+  }
+}
+
+// High Forever with D: he floats in the middle of the screen, arms flung wide, hair spiked, grinning
+function updateDuoParty(dt) {
+  duo.arrive = Math.max(0, duo.arrive - dt / 0.9);
+  duo.glitch = Math.max(0, duo.glitch - dt);
+  const s = DS();
+  if (duo.py == null) { duo.py = H - st.pos.y; duo.glitch = 0.35; sfx.glitch(); }
+  const tx = W / 2, ty = H / 2 + (DH / 2 - 6) * s + Math.sin(st.t * 1.7) * 2 * s;
+  duo.x = lerp(duo.x, tx, Math.min(1, dt * 2.5));
+  duo.py = lerp(duo.py, ty, Math.min(1, dt * 2.5));
+  duo.frame = Math.floor(st.t * 1.3) % 2 ? 'float1' : 'float0';
+  duo.behind = false; duo.coil = 0; duo.mode = 'party'; duo.air = true;
+  st.duoLift = 0;
+  dAura(dt);
+  duo.sparkT -= dt;
+  if (duo.sparkT <= 0 && duo.arrive < 0.2) {
+    duo.sparkT = 0.03;
+    const e = pick(dPixels(duo.frame)[1]);
+    if (e) { const p = dScreen(e[0] + 0.5, e[1] + 0.5); fx.spark(p.x, p.y); }
+  }
+}
+// the party ended: he drops back down next to her
+function duoPartyEnded() {
+  if (!duo.shown || duo.py == null) { duo.py = null; return; }
+  duo.py = null;
+  duo.x = clamp(st.pos.x + (st.pos.x > W / 2 ? -1 : 1) * 26 * S, 24 * S, W - 24 * S);
+  duo.pose = 'orbit'; duo.glitch = 0.35; sfx.glitch();
 }
 
 // ------------------------------------------------------------------ chill: lounging in mid-air
@@ -794,6 +854,7 @@ let currentFrame = 'idle0';
 let last = performance.now();
 
 function bodyFrame() {
+  if (st.party && st.partyFrame) return st.partyFrame;
   if (st.mode === 'dragging') {
     const d = st.drag;
     if (d && Math.abs(d.vx) > 150) return 'walk' + (Math.floor(st.t * 12) % 4);
@@ -922,7 +983,7 @@ function update(dt) {
   // red electric form while she moves
   const dragging = st.mode === 'dragging' && st.drag;
   const coilOrder = st.duo && st.duo.shown && now < st.duo.coilUntil;
-  const wantRed = (st.mode === 'walking' && st.walk) || dragging || coilOrder ? 1 : 0;
+  const wantRed = (st.mode === 'walking' && st.walk) || dragging || coilOrder || st.partyRed ? 1 : 0;
   if (wantRed && st.red < 0.05 && !st.redOn) {
     st.redOn = true;
     const c = toScreen(AX, CORE_Y);
@@ -1119,7 +1180,8 @@ function update(dt) {
     }
     if (Math.random() < dt * 3) sfx.crackle(0.12, 30);
   }
-  if (st.mode !== 'dragging') st.rot = lerp(st.rot, 0, 0.2);
+  if (st.mode !== 'dragging' && !st.party) st.rot = lerp(st.rot, 0, 0.2);
+  if (st.party) party.tick(dt);
 
   fx.update(dt);
 }
@@ -1401,6 +1463,8 @@ function positionUi() {
 }
 
 function say(text, { heard = '', seconds = null, label = null, listening = false, thinking = false, buttons = null, cps = 45 } = {}) {
+  // don't cover a Yes/No question she is waiting on (talking to her instead counts as "no")
+  if (st.confirmId && !buttons) { if (!listening) return; api.confirmAnswer(st.confirmId, false); st.confirmId = null; }
   clearTimeout(bubbleTimer);
   clearInterval(typeTimer);
   $('bubble-label').textContent = label || `${(cfg.characterName || 'CAPRI').toUpperCase()} //`;
@@ -1502,6 +1566,7 @@ window.addEventListener('mousemove', (e) => {
 });
 
 canvas.addEventListener('mousedown', (e) => {
+  if (st.party) return;                        // no dragging her mid-party (the stop box or Esc ends it)
   if (e.button === 0 && !overCharacter(e.clientX, e.clientY) && overD(e.clientX, e.clientY)) { sfx.audio(); pokeD(); return; }
   if (e.button !== 0 || !overCharacter(e.clientX, e.clientY)) return;
   sfx.audio();
@@ -1529,7 +1594,8 @@ window.addEventListener('contextmenu', (e) => {
   if (overCharacter(e.clientX, e.clientY) || overD(e.clientX, e.clientY)) { e.preventDefault(); api.showMenu(); }
 });
 window.addEventListener('wheel', (e) => {
-  if (!overCharacter(e.clientX, e.clientY)) return;
+  // mid-party she flies under the cursor all the time: scrolling whatever is under her must not resize her
+  if (st.party || !overCharacter(e.clientX, e.clientY)) return;
   cfg.scale = clamp((cfg.scale || 6) + (e.deltaY < 0 ? 1 : -1), 2, 14);
   applyScale();
   squash(1.1, 0.9);
@@ -1593,6 +1659,10 @@ function poke(at) {
 // ------------------------------------------------------------------ typing
 const typeinput = $('typeinput');
 function openTypebox() {
+  if (st.party) {                                // High Forever: talk to her by voice only
+    say(`No typing mid-party! Talk to me instead (${cfg.hotkeyTalk || 'your talk hotkey'}).`, { seconds: 3.5, cps: 90 });
+    return;
+  }
   typebox.hidden = false;
   setInteractive(true);
   positionUi();
@@ -1866,6 +1936,20 @@ const notes = initNotes({
   coreScreen: () => (st.chill ? orbScreen() : toScreen(AX, CORE_Y)),
 });
 
+// ------------------------------------------------------------------ High Forever (party mode)
+const party = initParty({
+  api, st, fx, sfx, ensureVisible, endChill, hideBubble, say, setEmotion, manyEyes, ghost, squash, feet, toScreen, AX, CORE_Y, tween, savePos,
+  closeNotes: () => notes.close(true),
+  closeTypebox: () => { if (!typebox.hidden) closeTypebox(); },
+  baseS: () => S, setS: (v) => { S = v; fx.S = v; }, S: () => S, dims: () => ({ W, H }),
+  sizeSetting: () => cfg.scale,
+  restoreScale: (scale) => { if (scale != null && cfg.scale !== scale) { cfg.scale = scale; api.setConfig({ scale }); } applyScale(); },
+  coreScreen: () => toScreen(AX, CORE_Y),
+  duoX: () => (duoShown() && duo.leave <= 0 ? duo.x : null),
+  duoCore: () => dScreen(DAX, DH - 28),
+  partyEnded: () => duoPartyEnded(),
+});
+
 // ------------------------------------------------------------------ events from main
 api.onTalkToggle(async () => {
   sfx.audio();
@@ -1881,11 +1965,30 @@ api.onReminder(async (msg) => {
   speak(`Ping! Reminder: ${msg}`, 'surprised');
 });
 api.onToast((msg) => say(msg, { seconds: 3 }));
+// she asks before doing something risky in your browser (or before linking a new browser)
+if (api.onConfirmAsk) api.onConfirmAsk(async ({ id, text, seconds = 60 }) => {
+  await ensureVisible();
+  setEmotion('surprised', 3, false);
+  fx.showEmote('?', 1.6);
+  sfx.blip(true);
+  st.confirmId = id;
+  say(text, {
+    label: 'CAPRI // ASKING', seconds, cps: 90,
+    buttons: [
+      { label: 'Yes, do it', onClick: () => { st.confirmId = null; hideBubble(); api.confirmAnswer(id, true); } },
+      { label: 'No', secondary: true, onClick: () => { st.confirmId = null; hideBubble(); api.confirmAnswer(id, false); } },
+    ],
+  });
+});
+if (api.onConfirmCancel) api.onConfirmCancel((id) => { if (st.confirmId === id) { st.confirmId = null; hideBubble(); } });
 api.onSay(async ({ text, emotion }) => { await ensureVisible(); speak(text, emotion || 'neutral'); });
-api.onDismiss(async () => { hideBubble(); stopSpeaking(); notes.close(true); await teleportOut(); });
+api.onDismiss(async () => { hideBubble(); stopSpeaking(); notes.close(true); party.stop(true); await teleportOut(); });
 api.onSummon(async () => { if (!st.visible) await teleportIn(st.pos.x, { dramatic: true }); });
 if (api.onDuo) api.onDuo((on) => (on ? callD() : uncallD()));
 api.onAction(async (name) => {
+  if (name === 'high_forever') { party.start(); return; }
+  if (name === 'high_forever_stop') { party.stop(); return; }
+  if (st.party) return;                          // mid-party: the party is the only action
   await ensureVisible();
   if (duoAction(name)) return;
   if (name === 'charge') charge(1.6);
@@ -1939,6 +2042,7 @@ api.onConfig((next) => {
   cfg = next;
   sfx.configure({ enabled: cfg.sfxEnabled, volume: cfg.sfxVolume, voice: cfg.voiceEnabled });
   sfx.loadCustom(api);
+  if (scaleChanged && st.party) st.party.sizeSetting = next.scale;   // a size picked in Settings mid-party sticks
   if (scaleChanged) applyScale();
   if (posReset) teleportTo(W - 30 * S - 40);
 });
@@ -1949,7 +2053,7 @@ function scheduleIdle() {
 }
 let lastLineAt = performance.now();
 function idleTick() {
-  if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill || st.notesOpen) return;
+  if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill || st.notesOpen || st.party) return;
   const now = performance.now();
   const r = Math.random();
   // left alone for a while: sometimes she just leans back and chills
@@ -1992,7 +2096,7 @@ async function greet() {
 
 // ------------------------------------------------------------------ boot
 requestAnimationFrame(loop);
-window.__test = { notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
+window.__test = { scaleNow: () => S, party, notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
 window.__ready = true;
 await sleep(500);
 await teleportIn(st.pos.x, { dramatic: true });

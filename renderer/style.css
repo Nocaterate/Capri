@@ -231,3 +231,29 @@ body.test-bg { background: linear-gradient(#3a6fd0 0%, #8fb8ef 55%, #5d9a3a 56%,
 @keyframes holo-flash { 50% { outline: 2px solid var(--bad); outline-offset: -1px; } }
 .holo-wrap tr.new td { animation: holo-row 1.6s ease-out; }
 @keyframes holo-row { 0% { background: rgba(255, 46, 120, 0.35); } 100% { background: transparent; } }
+
+/* ---------- High Forever: the stop box (bottom right) ---------- */
+.party-stop {
+  position: fixed; right: 20px; bottom: 20px; z-index: 6;
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 12px; cursor: pointer;
+  font-family: var(--font); color: var(--text); text-align: left;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 3px), rgba(20, 8, 20, 0.92);
+  border: 1px solid var(--edge);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 0 22px rgba(255, 42, 109, 0.55);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  animation: ps-glow 0.39s steps(2) infinite;
+}
+.party-stop.in { animation: glitch-in 260ms steps(5, end), ps-glow 0.39s steps(2) infinite 260ms; }
+.party-stop:hover { background: rgba(255, 42, 109, 0.22); }
+.party-stop:active { transform: translateY(1px); }
+.ps-icon { width: 16px; height: 16px; background: var(--edge); box-shadow: 0 0 10px var(--edge); flex: none; }
+.ps-text { display: flex; flex-direction: column; line-height: 1.25; }
+.ps-text b { font-size: 12.5px; letter-spacing: 0.12em; color: var(--hot); }
+.ps-text small { font-size: 11px; color: var(--muted); max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-key { font-size: 11px; color: var(--hot); border: 1px solid var(--edge-soft); padding: 2px 6px; }
+.ps-eq { display: flex; gap: 3px; align-items: flex-end; height: 22px; }
+.ps-eq i { display: block; width: 4px; background: var(--hot); box-shadow: 0 0 6px var(--edge); animation: ps-eq 0.39s ease-in-out infinite alternate; }
+.ps-eq i:nth-child(2) { animation-delay: -0.1s; } .ps-eq i:nth-child(3) { animation-delay: -0.25s; }
+.ps-eq i:nth-child(4) { animation-delay: -0.05s; } .ps-eq i:nth-child(5) { animation-delay: -0.3s; }
+@keyframes ps-eq { from { height: 4px; } to { height: 22px; } }
+@keyframes ps-glow { 50% { box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 0 34px rgba(255, 42, 109, 0.85); } }

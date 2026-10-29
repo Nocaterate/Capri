@@ -70,3 +70,4 @@ button.mini { padding: 2px 8px; font-size: 11px; margin-left: 4px; }
 pre.code { background: var(--field); border: 1px solid var(--line); padding: 10px; font-size: 12px; overflow-x: auto; white-space: pre; user-select: text; }
 
 .status-list.bad { color: var(--bad, #ff6b8a); }
+.sub { display: block; margin: 12px 0 0; font-size: 13px; color: var(--ink); }

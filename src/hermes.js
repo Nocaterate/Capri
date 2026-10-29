@@ -153,4 +153,13 @@ async function stopGateway({ leaveService = false } = {}) {
 }
 const gatewayAlive = () => !!child;
 
-module.exports = { status, health, verify, ensureMirrored, runSetup, startGateway, stopGateway, gatewayAlive, wsl, HERMES_URL };
+// restart Hermes so it reloads Capri's tool list (Hermes reads MCP tools when the gateway starts)
+async function restartGateway(log) {
+  if (!isWin) return false;
+  const r = await bash(`UNIT="$(${FIND_UNIT})"; if [ -n "$UNIT" ]; then ${WAIT_BUS}; hermes gateway restart --yes 2>&1 || systemctl --user restart "$UNIT" 2>&1; echo "[capri] restarted $UNIT"; else echo "[capri] no-unit"; fi`, 120000);
+  if (/no-unit/.test(r.out)) { await stopGateway(); return startGateway(log); }
+  for (let i = 0; i < 60; i++) { if (await health()) return true; await sleep(1000); }
+  return false;
+}
+
+module.exports = { status, health, verify, ensureMirrored, runSetup, startGateway, stopGateway, restartGateway, gatewayAlive, wsl, HERMES_URL };

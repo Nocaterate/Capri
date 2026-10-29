@@ -25,10 +25,14 @@ function fill(cfg) {
   markPreset();
 }
 
+// her size can also change with the mouse wheel while this window is open: Save only sends the size if you
+// moved the slider here, otherwise it would put back whatever size she had when Settings opened
+let scaleTouched = false;
 function read() {
   const out = {};
   for (const el of form.elements) {
     if (!el.name) continue;
+    if (el.name === 'scale' && !scaleTouched) continue;
     if (el.type === 'checkbox') out[el.name] = el.checked;
     else if (el.type === 'range') out[el.name] = Number(el.value);
     else out[el.name] = el.value.trim();
@@ -52,7 +56,13 @@ document.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('cl
   markPreset();
 }));
 form.elements.apiBaseUrl.addEventListener('input', markPreset);
-form.elements.scale.addEventListener('input', (e) => { $('scaleOut').textContent = `${e.target.value}× (${e.target.value * 80}px tall)`; });
+form.elements.scale.addEventListener('input', (e) => { scaleTouched = true; $('scaleOut').textContent = `${e.target.value}× (${e.target.value * 80}px tall)`; });
+// keep the slider in step with her real size
+if (api.onConfig) api.onConfig((c) => {
+  if (!c || scaleTouched || c.scale == null) return;
+  form.elements.scale.value = c.scale;
+  $('scaleOut').textContent = `${c.scale}× (${c.scale * 80}px tall)`;
+});
 document.querySelectorAll('[data-link]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); api.openExternal(a.dataset.link); }));
 
 $('test').addEventListener('click', async () => {
@@ -67,6 +77,7 @@ $('test').addEventListener('click', async () => {
 
 async function save() {
   await api.setConfig(read());
+  scaleTouched = false;
   const s = $('saved');
   s.className = 'result ok';
   s.textContent = 'Saved ✓';
@@ -216,3 +227,19 @@ $('soundsFolder').addEventListener('click', async () => {
   hermesRefresh();
   discordShow(await api.discordStatus());
 })();
+
+// ---------- browser link
+function browserShow(st) {
+  if (!st) return;
+  const list = st.browsers || [];
+  const lines = list.length
+    ? list.map((b) => `<div><span class="dot on"></span>${b.name} linked</div>`)
+    : [`<div><span class="dot"></span>${st.listening ? 'No browser linked yet' : 'Browser link is off'}</div>`];
+  if (st.defaultBrowser) lines.push(`<div><span class="dot"></span>Your default browser: ${st.defaultBrowser}</div>`);
+  $('browserStatus').innerHTML = lines.join('');
+}
+$('extOpen').addEventListener('click', () => api.openExtensionFolder('chromium'));
+$('extOpenFx').addEventListener('click', () => api.openExtensionFolder('firefox'));
+if (api.onBrowserState) api.onBrowserState(browserShow);
+(async () => { try { browserShow(await api.browserStatus()); } catch { /* old Capri */ } })();
+setInterval(async () => { try { browserShow(await api.browserStatus()); } catch { /* closing */ } }, 3000);

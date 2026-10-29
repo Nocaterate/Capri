@@ -1164,11 +1164,11 @@
  "duo": {
   "file": "d/d.png",
   "size": [
-   40,
+   64,
    100
   ],
   "anchor": [
-   20,
+   32,
    100
   ],
   "rects": {
@@ -1177,36 +1177,76 @@
     0
    ],
    "blink": [
-    40,
+    64,
     0
    ],
    "spiked": [
-    80,
+    128,
     0
    ],
    "spiked_blink": [
-    120,
+    192,
     0
    ],
    "folded": [
-    160,
+    256,
     0
    ],
    "lookup": [
-    200,
+    320,
+    0
+   ],
+   "creepy": [
+    384,
+    0
+   ],
+   "float0": [
+    448,
+    0
+   ],
+   "float1": [
+    512,
+    0
+   ],
+   "float_normal": [
+    576,
+    0
+   ],
+   "float_blink": [
+    640,
+    0
+   ],
+   "float_lookup": [
+    704,
+    0
+   ],
+   "float_folded": [
+    768,
+    0
+   ],
+   "float_spiked": [
+    832,
+    0
+   ],
+   "float_spiked_blink": [
+    896,
     0
    ]
   },
   "hand": [
-   38,
+   50,
    85
   ],
+  "floatHand": [
+   54,
+   65
+  ],
   "head": [
-   20,
+   32,
    42
   ],
   "headSpiked": [
-   20,
+   32,
    36
   ]
  }

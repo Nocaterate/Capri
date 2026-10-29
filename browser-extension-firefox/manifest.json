@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Capri Browser Link",
+  "version": "1.0.0",
+  "description": "Lets Capri (your desktop companion) open tabs, read pages, click and type in this browser. Talks only to Capri on this PC.",
+  "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
+  "action": { "default_title": "Capri Browser Link", "default_icon": { "16": "icon16.png", "48": "icon48.png" } },
+  "background": { "scripts": ["background.js"] },
+  "permissions": ["tabs", "scripting", "alarms", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "browser_specific_settings": { "gecko": { "id": "capri-browser-link@capri.local", "strict_min_version": "128.0" } }
+}
