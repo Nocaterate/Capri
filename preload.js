@@ -1,0 +1,55 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+const on = (channel) => (fn) => {
+  const h = (_e, data) => fn(data);
+  ipcRenderer.on(channel, h);
+  return () => ipcRenderer.removeListener(channel, h);
+};
+
+contextBridge.exposeInMainWorld('companion', {
+  setIgnoreMouse: (ignore) => ipcRenderer.send('set-ignore-mouse', ignore),
+  savePosition: (pos) => ipcRenderer.send('save-position', pos),
+  getConfig: () => ipcRenderer.invoke('get-config'),
+  getFullConfig: () => ipcRenderer.invoke('get-full-config'),
+  setConfig: (patch) => ipcRenderer.invoke('set-config', patch),
+  readAsset: (name) => ipcRenderer.invoke('read-asset', name),
+  openSettings: () => ipcRenderer.invoke('open-settings'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  showMenu: () => ipcRenderer.invoke('show-menu'),
+  transcribe: (buf, mime) => ipcRenderer.invoke('transcribe', buf, mime),
+  chat: (text, extra) => ipcRenderer.invoke('chat', text, extra),
+  tts: (text) => ipcRenderer.invoke('tts', text),
+  testApi: (patch) => ipcRenderer.invoke('test-api', patch),
+  listVoices: () => ipcRenderer.invoke('list-voices'),
+  previewVoice: () => ipcRenderer.invoke('preview-voice'),
+  listSounds: () => ipcRenderer.invoke('list-sounds'),
+  openSoundsFolder: () => ipcRenderer.invoke('open-sounds-folder'),
+  createFishVoice: (patch) => ipcRenderer.invoke('create-fish-voice', patch),
+  testVoice: (patch) => ipcRenderer.invoke('test-voice', patch),
+  openVoiceSamplesFolder: () => ipcRenderer.invoke('open-voice-samples-folder'),
+  spotifyStatus: () => ipcRenderer.invoke('spotify-status'),
+  spotifyConnect: (clientId) => ipcRenderer.invoke('spotify-connect', clientId),
+  spotifyDisconnect: () => ipcRenderer.invoke('spotify-disconnect'),
+  hermesStatus: () => ipcRenderer.invoke('hermes-status'),
+  hermesConnect: () => ipcRenderer.invoke('hermes-connect'),
+  hermesBrain: (on) => ipcRenderer.invoke('hermes-brain', on),
+  hermesManual: () => ipcRenderer.invoke('hermes-manual'),
+  discordStatus: () => ipcRenderer.invoke('discord-status'),
+  discordRestart: () => ipcRenderer.invoke('discord-restart'),
+  decodeResult: (r) => ipcRenderer.send('decode-result', r),
+  onDuo: on('duo'),
+  onDiscordEvent: on('discord-event'),
+  onDiscordState: on('discord-state'),
+  onDecodeRequest: on('decode-request'),
+  onRemoteTool: on('remote-tool'),
+  onCursor: on('cursor'),
+  onConfig: on('config'),
+  onTalkToggle: on('talk-toggle'),
+  onTypeOpen: on('type-open'),
+  onReminder: on('reminder'),
+  onToast: on('toast'),
+  onDismiss: on('dismiss'),
+  onSummon: on('summon'),
+  onAction: on('action'),
+  onSay: on('say'),
+});

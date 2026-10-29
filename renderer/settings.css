@@ -1,0 +1,72 @@
+:root {
+  --ink: #FBE9F2;
+  --ink-soft: #C79AB4;
+  --line: #55283F;
+  --bg: #140A16;
+  --card: #1F0F1E;
+  --field: #140A16;
+  --accent: #FF2A6D;
+  --accent-hot: #FFB3D1;
+  --ok: #5EE6B0;
+  --bad: #FF6B8B;
+  color-scheme: dark;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-size: 14px; }
+header { display: flex; gap: 14px; align-items: center; padding: 20px 24px 8px; }
+header img { width: 48px; height: 48px; image-rendering: pixelated; }
+h1 { font-family: "Cascadia Mono", Consolas, monospace; font-size: 18px; letter-spacing: 0.08em; margin: 0; color: var(--accent-hot); }
+header p { margin: 2px 0 0; color: var(--ink-soft); }
+form { padding: 8px 24px 90px; }
+section {
+  background: var(--card); border: 1px solid var(--line); padding: 16px 18px; margin: 12px 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+h2 { font-family: "Cascadia Mono", Consolas, monospace; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 12px; color: var(--accent-hot); }
+label { display: block; margin: 10px 0; font-weight: 600; font-size: 13px; }
+label.check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+input:not([type=checkbox]):not([type=range]), select, textarea {
+  display: block; width: 100%; margin-top: 5px; font: inherit; font-weight: 400;
+  padding: 8px 11px; border: 1px solid var(--line); background: var(--field); color: var(--ink);
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+input[type=range] { width: 100%; margin-top: 6px; accent-color: var(--accent); }
+input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+textarea { resize: vertical; }
+small { display: block; color: var(--ink-soft); font-weight: 400; margin-top: 5px; line-height: 1.4; }
+a { color: var(--accent-hot); }
+code { background: #2E1426; padding: 1px 5px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.grid2 label, .grid3 label { margin: 4px 0; }
+.row { display: flex; gap: 10px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+.presets { display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: inherit; font-weight: 600; padding: 8px 16px; cursor: pointer; border: 1px solid transparent; }
+.primary { background: var(--accent); color: #fff; padding: 10px 26px; }
+.secondary { background: #2E1426; color: var(--ink); border-color: var(--line); }
+.chip { background: var(--field); border-color: var(--line); color: var(--ink); padding: 6px 13px; font-size: 13px; }
+.chip.active { border-color: var(--accent); background: #2E1426; color: var(--accent-hot); }
+.result { font-size: 13px; }
+.result.ok { color: var(--ok); }
+.result.bad { color: var(--bad); }
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--ink-soft); font-size: 13px; }
+footer {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: flex-end; align-items: center; gap: 14px;
+  padding: 12px 24px; background: var(--card); border-top: 1px solid var(--line);
+}
+
+h3 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-hot); margin: 18px 0 6px; }
+.subbox { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--line); margin: 4px 0 8px; }
+.subbox[hidden] { display: none; }
+#edgeBox { opacity: 0.95; }
+.steps { margin: 8px 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: var(--ink-soft); }
+.steps b { color: var(--ink); }
+button.mini { padding: 2px 8px; font-size: 11px; margin-left: 4px; }
+.status-list { display: flex; flex-direction: column; gap: 4px; font-size: 13px; margin: 10px 0; color: var(--ink-soft); }
+.dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: var(--line); }
+.dot.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+pre.code { background: var(--field); border: 1px solid var(--line); padding: 10px; font-size: 12px; overflow-x: auto; white-space: pre; user-select: text; }
+
+.status-list.bad { color: var(--bad, #ff6b8a); }

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self';" />
+  <title>Settings</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <header>
+    <img src="../assets/icon256.png" alt="" />
+    <div>
+      <h1 id="title">CAPRI // CONFIG</h1>
+      <p>Changes apply as soon as you save.</p>
+    </div>
+  </header>
+
+  <form id="form" autocomplete="off">
+    <section>
+      <h2>AI brain</h2>
+      <div class="presets">
+        <button type="button" data-preset="groq" class="chip">Groq (free)</button>
+        <button type="button" data-preset="claude" class="chip">Claude</button>
+        <button type="button" data-preset="gemini" class="chip">Gemini (free)</button>
+        <button type="button" data-preset="openrouter" class="chip">OpenRouter (DeepSeek)</button>
+        <button type="button" data-preset="ollama" class="chip">Ollama (local)</button>
+        <button type="button" data-preset="openai" class="chip">OpenAI</button>
+      </div>
+      <label>API key
+        <input name="apiKey" type="password" placeholder="gsk_..." />
+        <small>Groq: sign up for free, then create a key at <a href="#" data-link="https://console.groq.com/keys">console.groq.com/keys</a>. Claude: create a key in the <a href="#" data-link="https://platform.claude.com/">Claude Console</a>. Gemini: get a free key in <a href="#" data-link="https://aistudio.google.com/apikey">Google AI Studio</a>. OpenRouter: create a key at <a href="#" data-link="https://openrouter.ai/settings/keys">openrouter.ai/settings/keys</a>. The key is only stored on this computer.</small>
+      </label>
+      <label>API address (OpenAI-compatible)
+        <input name="apiBaseUrl" type="url" />
+      </label>
+      <label>Chat model
+        <input name="chatModel" />
+      </label>
+      <div class="row">
+        <button type="button" id="test" class="secondary">Test connection</button>
+        <span id="testResult" class="result"></span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Ears (speech-to-text)</h2>
+      <div class="grid2">
+        <label>Model
+          <input name="sttModel" />
+        </label>
+        <label>Language
+          <select name="sttLanguage">
+            <option value="en">English</option>
+            <option value="id">Indonesian</option>
+            <option value="ja">Japanese</option>
+            <option value="">Detect automatically</option>
+          </select>
+        </label>
+      </div>
+      <details>
+        <summary>Use a different service for speech-to-text</summary>
+        <label>STT API address (empty = same as above)
+          <input name="sttBaseUrl" type="url" placeholder="https://api.groq.com/openai/v1" />
+        </label>
+        <label>STT API key (empty = same as above)
+          <input name="sttApiKey" type="password" />
+        </label>
+        <small>Claude, Gemini and Ollama have no speech-to-text here. If her brain runs on either, put a Groq key here so voice chat still works.</small>
+      </details>
+    </section>
+
+    <section>
+      <h2>Character</h2>
+      <div class="grid2">
+        <label>Character name
+          <input name="characterName" maxlength="30" />
+        </label>
+        <label>Your name
+          <input name="userName" maxlength="30" placeholder="optional" />
+        </label>
+      </div>
+      <label>Personality &amp; speaking style
+        <textarea name="personality" rows="5"></textarea>
+      </label>
+      <label>Pixel size <output id="scaleOut"></output>
+        <input name="scale" type="range" min="2" max="14" step="1" />
+        <small>You can also hover over her and scroll.</small>
+      </label>
+      <label class="check"><input name="autonomy" type="checkbox" /> Let her walk, dash, teleport &amp; chat on her own now and then</label>
+    </section>
+
+    <section>
+      <h2>Voice &amp; sound</h2>
+      <label class="check"><input name="voiceEnabled" type="checkbox" /> She talks out loud</label>
+      <label>Her voice
+        <select name="ttsProvider" id="providerSelect">
+          <option value="fish">Capri's own voice (cloned from her clips with Fish Audio)</option>
+          <option value="edge">Microsoft Edge voice (free, built in, not her real voice)</option>
+        </select>
+      </label>
+
+      <div id="fishBox" class="subbox">
+        <small>Everything she says is spoken in the voice from her sample clips. Fish Audio's
+          <code>s2.1-pro-free</code> model is their free developer tier. Only clone a voice that is yours or that you have permission to use.</small>
+        <label>Fish Audio API key
+          <input name="fishApiKey" type="password" placeholder="paste your key" />
+          <small>Sign up at <a href="#" data-link="https://fish.audio">fish.audio</a>, then create a key under
+            <a href="#" data-link="https://fish.audio/app/api-keys/">API keys</a>. The key is only stored on this computer.</small>
+        </label>
+        <div class="row">
+          <button type="button" id="makeVoice" class="secondary">Create Capri's voice from her clips</button>
+          <span id="voiceResult" class="result"></span>
+        </div>
+        <label>Voice model ID
+          <input name="fishVoiceId" placeholder="filled in for you, or paste an ID or link from fish.audio" />
+        </label>
+        <div class="grid2">
+          <label>Model
+            <select name="fishModel">
+              <option value="s2.1-pro-free">S2.1 Pro, free tier</option>
+              <option value="s2.1-pro">S2.1 Pro, paid credits</option>
+            </select>
+          </label>
+          <label>Speed
+            <select name="fishSpeed">
+              <option value="0.9">A bit slow</option>
+              <option value="1">Normal</option>
+              <option value="1.1">A bit fast</option>
+              <option value="1.25">Fast</option>
+            </select>
+          </label>
+        </div>
+        <small>Want a different sound? <a href="#" id="samplesFolder">Open the voice samples folder</a>, drop in clean clips of the voice,
+          then click "Create Capri's voice" again.</small>
+      </div>
+
+      <div id="edgeBox" class="subbox">
+        <small>Also used automatically if her cloned voice is offline.</small>
+        <label>Voice
+          <select name="ttsVoice" id="voiceSelect"></select>
+        </label>
+        <div class="grid2">
+          <label>Pitch
+            <select name="ttsPitch">
+              <option value="-8%">A bit lower</option>
+              <option value="+0%">Normal</option>
+              <option value="+8%">A bit higher</option>
+              <option value="+15%">High (closest to Capri)</option>
+              <option value="+25%">Very high</option>
+            </select>
+          </label>
+          <label>Speed
+            <select name="ttsRate">
+              <option value="-10%">Slow</option>
+              <option value="+0%">Normal</option>
+              <option value="+6%">A bit fast</option>
+              <option value="+20%">Fast</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <label class="check"><input name="voiceFx" type="checkbox" /> Digital voice effect (adds a robotic, electric edge)</label>
+      <div class="row">
+        <button type="button" id="preview" class="secondary">Save &amp; test voice</button>
+        <span id="previewResult" class="result"></span>
+      </div>
+      <label class="check"><input name="sfxEnabled" type="checkbox" /> Sound effects (lightning, teleport, glitch)</label>
+      <label>Effects volume
+        <input name="sfxVolume" type="range" min="0" max="1" step="0.05" />
+      </label>
+      <h3>Your own sounds</h3>
+      <small>Drop mp3, wav or ogg files into her sounds folder to replace any sound effect. The README inside the folder lists every name.
+        Click Save afterwards to load them.</small>
+      <div class="row">
+        <button type="button" id="soundsFolder" class="secondary">Open sounds folder</button>
+        <span id="soundsResult" class="result"></span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Hermes Agent</h2>
+      <small>Connect Capri to <a href="#" data-link="https://hermes-agent.nousresearch.com/docs/user-guide/windows-wsl-quickstart">Hermes Agent</a>
+        (running in WSL). Capri then talks through Hermes's brain and memory, and Hermes can use Capri's powers on this PC:
+        Spotify, opening and closing apps, media keys, reminders, and making her speak or react, even when you message Hermes from Telegram.</small>
+      <div id="hermesStatus" class="status-list">Checking…</div>
+      <div class="row">
+        <button type="button" id="hermesConnect" class="primary">Connect Capri and Hermes</button>
+        <span id="hermesResult" class="result"></span>
+      </div>
+      <ul id="hermesSteps" class="steps" hidden></ul>
+      <label class="check"><input name="hermesSetBrain" type="checkbox" /> Set up Hermes's AI model for me (no <code>hermes setup</code> needed)</label>
+      <label>Free Gemini key for Hermes (recommended)
+        <input name="hermesGeminiKey" type="password" placeholder="from aistudio.google.com/apikey — leave empty to reuse Capri's AI key" />
+        <small>Get one free at <a href="#" data-link="https://aistudio.google.com/apikey">Google AI Studio</a>. Hermes needs a model with a big memory (64K+), and Gemini's free tier fits.</small>
+      </label>
+      <label class="check"><input id="hermesBrain" type="checkbox" /> Capri talks through Hermes (her brain)</label>
+      <label class="check"><input name="hermesBridge" type="checkbox" /> Let Hermes use Capri's powers (local tool server)</label>
+      <label class="check"><input name="hermesAutostart" type="checkbox" /> Start Hermes together with Capri</label>
+      <details>
+        <summary>Set it up by hand</summary>
+        <small>Add this to <code>~/.hermes/config.yaml</code> inside WSL (merge it into an existing <code>mcp_servers:</code>):</small>
+        <pre id="hermesYaml" class="code"></pre>
+        <small>…and these lines to <code>~/.hermes/.env</code>, then restart <code>hermes gateway</code>:</small>
+        <pre id="hermesEnv" class="code"></pre>
+      </details>
+    </section>
+
+    <section>
+      <h2>Discord bot</h2>
+      <small>Put Capri on your Discord server. Anyone can chat with her (mention <b>@Capri</b>, reply to her, or DM her);
+        only you can make her play music or control this PC. She runs while the Capri app is open.</small>
+      <ol class="steps">
+        <li>Open the <a href="#" data-link="https://discord.com/developers/applications">Discord Developer Portal</a>, click <b>New Application</b> and name it <b>Capri</b>.</li>
+        <li>Go to <b>Bot</b>, click <b>Reset Token</b> and copy the token into the box below.</li>
+        <li>On the same page, under <b>Privileged Gateway Intents</b>, turn on <b>Message Content Intent</b> and save.</li>
+        <li>Click <b>Save &amp; start the bot</b> here, then <b>Invite Capri to a server</b>.</li>
+      </ol>
+      <label>Bot token
+        <input name="discordToken" type="password" placeholder="from Developer Portal → Bot → Reset Token" />
+      </label>
+      <label class="check"><input name="discordEnabled" type="checkbox" /> Run Capri's Discord bot <small>(on one PC only, or she answers twice)</small></label>
+      <label class="check"><input name="discordDesktop" type="checkbox" /> Show Discord chats on my desktop Capri</label>
+      <label class="check"><input name="discordVoice" type="checkbox" /> Speak her replies in voice channels (after <code>/join</code>)</label>
+      <div id="discordStatus" class="status-list"><div><span class="dot"></span>Off</div></div>
+      <div class="row">
+        <button type="button" id="discordStart" class="primary">Save &amp; start the bot</button>
+        <button type="button" id="discordInvite" class="secondary" hidden>Invite Capri to a server</button>
+      </div>
+      <details>
+        <summary>Commands &amp; owner</summary>
+        <small><code>/ask</code> chat · <code>/owner</code> who's her owner · <code>/zap</code> make desktop Capri power up · <code>/join</code> / <code>/leave</code> voice channel ·
+          owner only: <code>/play</code> <code>/music</code> <code>/nowplaying</code> <code>/say</code>. Slash commands can take a few minutes to show up the first time.</small>
+        <label>Owner (your Discord username)
+          <input name="discordOwnerId" placeholder="e.g. capri_fan — empty = the account that created the bot" />
+          <small>Your <b>username</b> (the unique one under your name in Discord, not your display name). Add more accounts with commas, e.g. <code>capri_fan, capri_fan_alt</code>.
+            Type <code>/owner</code> in Discord to check who she thinks her owner is.</small>
+        </label>
+      </details>
+    </section>
+
+    <section>
+      <h2>Spotify</h2>
+      <small>Without connecting, she can still open Spotify, pause, skip, change the volume, open a song search,
+        and tell you what's playing. To let her <b>open the exact song, artist or playlist you ask for</b>, queue songs and shuffle,
+        connect Spotify. That needs Spotify Premium, plus a free developer app:</small>
+      <ol class="steps">
+        <li>Open <a href="#" data-link="https://developer.spotify.com/dashboard">developer.spotify.com/dashboard</a>, log in, and click <b>Create app</b>.</li>
+        <li>Give it any name and description. Under <b>Redirect URIs</b> add exactly
+          <code id="redirectUri">http://127.0.0.1:43821/callback</code>
+          <button type="button" id="copyRedirect" class="mini">Copy</button>, tick <b>Web API</b>, and save.</li>
+        <li>Copy the app's <b>Client ID</b> into the box below and click <b>Connect Spotify</b>.</li>
+      </ol>
+      <label>Client ID
+        <input name="spotifyClientId" placeholder="32 letters and numbers from your Spotify app" />
+      </label>
+      <div class="row">
+        <button type="button" id="spotifyConnect" class="secondary">Connect Spotify</button>
+        <button type="button" id="spotifyDisconnect" class="secondary" hidden>Disconnect</button>
+        <span id="spotifyResult" class="result"></span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Shortcuts</h2>
+      <div class="grid3">
+        <label>Talk (voice)<input name="hotkeyTalk" /></label>
+        <label>Type a message<input name="hotkeyType" /></label>
+        <label>Hide / summon<input name="hotkeyHide" /></label>
+      </div>
+      <small>Electron format, e.g. <code>Control+Alt+Space</code>, <code>Control+Shift+A</code>.</small>
+      <label class="check"><input name="openAtLogin" type="checkbox" /> Start Capri when Windows starts</label>
+    </section>
+  </form>
+
+  <footer>
+    <span id="saved" class="result"></span>
+    <button type="button" id="save" class="primary">Save</button>
+  </footer>
+
+  <script src="settings.js"></script>
+</body>
+</html>

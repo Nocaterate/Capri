@@ -1,0 +1,20 @@
+# dependencies (start.bat installs them)
+node_modules/
+
+# private notes, never publish
+CLAUDE.local.md
+
+# voice clips are not shipped: only the README in that folder
+assets/capri/voice-samples/*
+!assets/capri/voice-samples/README.md
+
+# personal data / build output
+config.json
+history.json
+*.log
+*.bak*
+.env*
+*.zip
+dist/
+__pycache__/
+.claude/

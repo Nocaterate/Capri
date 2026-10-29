@@ -1,0 +1,109 @@
+[hidden] { display: none !important; }
+
+:root {
+  --panel: rgba(20, 8, 20, 0.94);
+  --edge: #FF2A6D;
+  --edge-soft: rgba(255, 42, 109, 0.45);
+  --text: #FBE9F2;
+  --muted: #C79AB4;
+  --hot: #FFB3D1;
+  --cyan: #2EFF8C;
+  --font: "Cascadia Mono", "Consolas", "JetBrains Mono", ui-monospace, monospace;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--font);
+  user-select: none;
+}
+body.test-bg { background: linear-gradient(#3a6fd0 0%, #8fb8ef 55%, #5d9a3a 56%, #3f7a24 100%); }
+
+#stage { position: fixed; inset: 0; display: block; }
+
+/* ---------- electric speech bubble ---------- */
+.bubble {
+  position: fixed;
+  max-width: 320px;
+  min-width: 120px;
+  padding: 10px 14px 12px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px),
+    var(--panel);
+  color: var(--text);
+  border: 1px solid var(--edge);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 0 18px var(--edge-soft), 0 10px 30px rgba(0,0,0,0.45);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  font-size: 14px;
+  line-height: 1.5;
+  pointer-events: auto;
+}
+.bubble.in { animation: glitch-in 260ms steps(5, end); }
+.bubble.listening { border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 0 18px rgba(46,255,140,0.35); }
+
+.bubble-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.label { font-size: 11px; letter-spacing: 0.16em; color: var(--edge); font-weight: 700; }
+.bubble.listening .label { color: var(--cyan); }
+.led { width: 6px; height: 6px; background: var(--hot); box-shadow: 0 0 8px var(--edge); animation: blink 1.2s steps(2) infinite; }
+
+.heard { font-size: 12px; color: var(--muted); margin-bottom: 4px; word-break: break-word; }
+.text { white-space: pre-wrap; word-break: break-word; min-height: 1.5em; }
+.text.typing::after, .text.thinking::after {
+  content: "▌";
+  color: var(--hot);
+  animation: blink 0.7s steps(2) infinite;
+  margin-left: 1px;
+}
+.text.thinking { color: var(--hot); letter-spacing: 0.12em; }
+
+.meter { display: flex; gap: 4px; height: 18px; align-items: center; margin-top: 4px; }
+.meter span { width: 5px; height: 3px; background: var(--cyan); box-shadow: 0 0 6px rgba(46,255,140,0.7); transition: height 60ms linear; }
+
+.actions { display: flex; gap: 8px; margin-top: 10px; }
+.actions button {
+  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+  border: 1px solid var(--edge); padding: 6px 12px; cursor: pointer;
+  background: var(--edge); color: #fff;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.actions button.secondary { background: transparent; color: var(--hot); }
+
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes glitch-in {
+  0% { opacity: 0; transform: translateX(-6px) skewX(8deg); filter: hue-rotate(60deg); }
+  40% { opacity: 1; transform: translateX(4px); }
+  70% { transform: translateX(-2px) skewX(-4deg); }
+  100% { transform: none; filter: none; }
+}
+
+/* ---------- typing box ---------- */
+.typebox {
+  position: fixed;
+  width: 320px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  box-shadow: 0 0 16px var(--edge-soft);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+.typebox .prompt { color: var(--edge); font-weight: 700; }
+.typebox input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  caret-color: var(--hot);
+  user-select: text;
+}
+.typebox input::placeholder { color: #8E5F78; }

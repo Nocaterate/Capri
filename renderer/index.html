@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' blob: data:;" />
+  <title>Capri</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <div id="bubble" class="bubble interactive" hidden>
+    <div class="bubble-head"><span id="bubble-label" class="label">CAPRI //</span><span class="led"></span></div>
+    <div id="bubble-heard" class="heard" hidden></div>
+    <div id="bubble-text" class="text"></div>
+    <div id="bubble-meter" class="meter" hidden>
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div id="bubble-actions" class="actions" hidden></div>
+  </div>
+
+  <form id="typebox" class="typebox interactive" hidden autocomplete="off">
+    <span class="prompt">&gt;</span>
+    <input id="typeinput" type="text" placeholder="type a message… (Enter to send, Esc to close)" maxlength="500" />
+  </form>
+
+  <script>
+    window.__errors = [];
+    window.addEventListener('error', (e) => window.__errors.push(String(e.message)));
+    window.addEventListener('unhandledrejection', (e) => window.__errors.push(String(e.reason && e.reason.message || e.reason)));
+  </script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
