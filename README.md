@@ -49,10 +49,13 @@ Capri is an agent: the AI decides when to use these tools, so just ask in normal
 She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
 
 ### Privacy
-Your keys, tokens, settings, chat memory, notes, to-dos and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself. Never share your `config.json` or post your keys in issues.
+Your keys, tokens, settings, chat memory, notes, to-dos and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version). Never share your `config.json` or post your keys in issues.
 
 ### Updating / uninstalling
-- **Update:** download the new release and extract it over the old folder (or into a new one). Your settings stay in `%APPDATA%\Capri`.
+When a new version is out, Capri tells you once with a Windows notification, and her right-click menu shows **Update to vX…** (it opens the release page). How to update depends on how you installed her; your settings, notes and keys stay in `%APPDATA%\Capri` either way.
+- **Portable zip:** quit Capri from the tray icon, download the new `Capri-win64.zip` from [Releases](https://github.com/Nocaterate/Capri/releases/latest), and extract it over the old folder (or into a new one).
+- **`git clone`:** quit Capri, then in the Capri folder run `git pull` followed by `npm install` (only needed when an update adds new packages, but it's safe to always run), and start her again with `start.bat`.
+- **"Download ZIP" from the Code button:** download it again and extract it over the old folder. Keep the old `node_modules` folder, or let `start.bat` reinstall it.
 - **Uninstall:** quit Capri from the tray icon, delete the `Capri` folder, and (to remove your settings too) delete `%APPDATA%\Capri`.
 
 ## Changing the AI later

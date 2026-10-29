@@ -94,6 +94,7 @@ const DEFAULT_CONFIG = {
   discordVoice: true, // speak replies in a voice channel after /join
   discordAvatarSet: false,
   dOut: false, // D (her companion) is out next to her
+  updateNotified: '', // newest version she already told the user about
 };
 const SECRET_KEYS = ['spotifyRefreshToken', 'spotifyAccessToken', 'spotifyExpires', 'hermesMcpToken', 'hermesApiKey', 'hermesPrevBrain', 'hermesBrain', 'discordAvatarSet', 'discordOwnerLocks'];
 
@@ -192,6 +193,7 @@ function buildTray() {
 
 function menuTemplate() {
   return [
+    ...(newRelease ? [{ label: `⚡ Update to v${newRelease.version}…`, click: () => shell.openExternal(newRelease.url) }, { type: 'separator' }] : []),
     { label: `Talk (voice)    ${config.hotkeyTalk}`, click: () => { toggleHidden(false); send('talk-toggle'); } },
     { label: `Type a message    ${config.hotkeyType}`, click: () => focusTyping() },
     { type: 'separator' },
@@ -338,6 +340,38 @@ ipcMain.handle('notes-save', (_e, doc) => {
 });
 ipcMain.on('notes-state', (_e, open) => { notesOpen = !!open; if (tray) buildTray(); });
 ipcMain.on('focus-overlay', () => { if (alive()) { setIgnoreMouse(false); overlay.focus(); } });
+
+// ---------- new version check ----------
+// Asks GitHub for the latest release at start and every 12 h. When it's newer than this copy the menu gets
+// "Update to vX…" (opens the release page), and Windows shows a notification once per new version.
+const RELEASES_API = 'https://api.github.com/repos/Nocaterate/Capri/releases/latest';
+let newRelease = null; // { version, url }
+const verParts = (v) => String(v).replace(/^v/i, '').split(/[.-]/).slice(0, 3).map((n) => parseInt(n, 10) || 0);
+function isNewer(a, b) {
+  const x = verParts(a), y = verParts(b);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
+  return false;
+}
+async function checkForUpdate() {
+  try {
+    const res = await fetch(RELEASES_API, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Capri' }, signal: AbortSignal.timeout(15000) });
+    if (!res.ok) { log('update check: GitHub said', res.status); return; }
+    const r = await res.json();
+    if (!r.tag_name || r.draft || r.prerelease || !isNewer(r.tag_name, app.getVersion())) return;
+    const version = String(r.tag_name).replace(/^v/i, '');
+    const url = /^https:\/\/github\.com\//.test(r.html_url || '') ? r.html_url : 'https://github.com/Nocaterate/Capri/releases/latest';
+    newRelease = { version, url };
+    if (tray) buildTray();
+    log('new version available:', version, '(this is', app.getVersion() + ')');
+    if (config.updateNotified === version) return;
+    setConfig({ updateNotified: version });
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: `${config.characterName} v${version} is out ⚡`, body: 'Click to open the download page, or right-click her → Update.', icon: path.join(ASSET_DIR, 'icon256.png') });
+      n.on('click', () => shell.openExternal(url));
+      n.show();
+    }
+  } catch (e) { log('update check failed', e.message); }
+}
 
 // ---------- live updates ----------
 // When Capri runs from a plain folder (resources/app, not app.asar), editing her files updates her by herself:
@@ -879,6 +913,7 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
     watchOwnFiles();
     scheduleTodoReminders(loadNotes());
     log('to-do reminders scheduled:', loadNotes().todos.filter((t) => t.remind).length);
+    if (!IS_TEST) { setTimeout(checkForUpdate, 20000); setInterval(checkForUpdate, 12 * 3600 * 1000); }
     setInterval(() => {
       if (!alive() || hidden) return;
       const p = screen.getCursorScreenPoint();
