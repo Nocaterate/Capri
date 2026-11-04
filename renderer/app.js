@@ -7,6 +7,7 @@ import { FX } from './fx.js';
 import * as sfx from './sfx.js';
 import { initNotes } from './notes.js';
 import { initParty } from './party.js';
+import { initRide } from './ride.js';
 
 const api = window.companion;
 const $ = (id) => document.getElementById(id);
@@ -274,6 +275,10 @@ async function teleportOut() {
   fx.bolt(h.x, h.y, h.x + rand(-40, 40), -20, { life: 0.3, width: 1.3, branches: 2 });
   fx.doFlash(0.35);
   sfx.zap(1.2);
+  if (duoShown() && !duo.ride && duo.leave <= 0) {   // D goes with her: his pixels fly off too
+    fx.shatter(dFramePixels(true).map((p) => ({ ...p, c: '#FF5C9A' })), { up: 220 * (S / 6), spread: 150 * (S / 6) });
+    duo.tp = true;
+  }
   st.visible = false;
   st.sx = 1; st.sy = 1; st.whiten = 0;
   await sleep(260);
@@ -298,6 +303,12 @@ async function teleportIn(x = st.pos.x, { dramatic = false } = {}) {
   st.sx = 1; st.sy = 1; st.whiten = 0;
   compose();
   fx.converge(framePixels(1, 2.2), { from: 160 * (S / 6), life: 0.3 });
+  if (duo.shown && !duo.ride && duo.leave <= 0) {    // …and D's, next to her new spot
+    duo.tp = true;
+    duo.x = clamp(st.pos.x - duo.cdx * S, 24 * S, W - 24 * S);
+    duo.py = null;
+    fx.converge(dFramePixels(true).map((p) => ({ ...p, c: '#FF5C9A' })), { from: 160 * (S / 6), life: 0.3 });
+  }
   sfx.crackle(0.3, 40);
   await sleep(300);
   // …then the strike
@@ -307,6 +318,11 @@ async function teleportIn(x = st.pos.x, { dramatic = false } = {}) {
   fx.burst(f0.x, f0.y - S * 2, 26, { speed: 320 * (S / 6), up: 120, life: 0.7 });
   sfx.thunder();
   st.visible = true;
+  if (duo.tp) {                                    // he lands with her
+    duo.tp = false; duo.glitch = 0.35;
+    const g = dGround();
+    fx.ring(duo.x, g, { r0: S * 2, r1: S * 20, life: 0.4 });
+  }
   st.sx = 0.08; st.sy = 1.3; st.whiten = 1;
   await tween(st, { sx: 1, sy: 1, whiten: 0 }, 0.2, easeOut);
   st.glitchT = 0.12;
@@ -442,7 +458,7 @@ function duoAction(name) {
 st.duo = duo;
 st.duoLift = 0;
 const dGround = () => (duo.py != null ? duo.py : H - st.pos.y - (duo.air ? Math.sin(st.t * 1.7) * 1.5 * S : 0));   // High Forever: he floats on his own
-const DS = () => (st.party ? st.party.S0 : S);                  // and keeps his size while she grows and shrinks
+const DS = () => (st.party && st.party.kind !== 'ride' ? st.party.S0 : S);                  // and keeps his size while she grows and shrinks
 function dScreen(px, py) { const s = DS(); return { x: duo.x + (px - DAX) * s, y: dGround() + (py - DAY) * s }; }
 const duoShown = () => duo.shown && st.visible;
 const duoCoil = () => duoShown() && duo.coil > 0.5;
@@ -486,7 +502,7 @@ function pokeD() {
   speak(pick(D_POKE_LINES), 'happy', { quick: true });
 }
 function overD(x, y) {
-  if (!duoShown() || duo.arrive > 0.45 || duo.leave > 0) return false;
+  if (!duoShown() || duo.ride || duo.tp || duo.arrive > 0.45 || duo.leave > 0) return false;
   const s = DS(), sx = Math.floor((x - duo.x) / s + DAX), sy = Math.floor((y - dGround()) / s + DAY);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dAlpha(duo.frame, sx + dx, sy + dy) > 120) return true;
   return false;
@@ -494,7 +510,8 @@ function overD(x, y) {
 
 function updateDuo(dt, now) {
   if (!duo.shown) { st.duoLift = lerp(st.duoLift, 0, Math.min(1, dt * 6)); return; }
-  if (st.party && duo.leave <= 0) { updateDuoParty(dt); return; }
+  if (duo.ride) return;                           // In Love With Myself: he's up on the car (drawn by ride.js)
+  if (st.party && st.party.kind !== 'ride' && duo.leave <= 0) { updateDuoParty(dt); return; }
   duo.arrive = Math.max(0, duo.arrive - dt / 0.9);
   duo.glitch = Math.max(0, duo.glitch - dt);
   if (duo.leave > 0) {
@@ -535,9 +552,9 @@ function updateDuo(dt, now) {
     fx.ring(c.x, c.y, { r0: S * 3, r1: S * 20, life: 0.35, color: '#FF8FB6' });
     sfx.zap(0.6);
   }
-  if (st.mode === 'teleport') duo.wasTeleport = true;
-  else if (duo.wasTeleport) {         // she teleported: D zips over with a glitch
-    duo.wasTeleport = false;
+  // D teleports with her (teleportOut/teleportIn); if anything ever leaves him behind, he snaps to her
+  if (duo.tp && st.visible && st.mode !== 'teleport') { duo.tp = false; duo.glitch = 0.35; }
+  if (!duo.tp && st.visible && st.mode === 'idle' && Math.abs(duo.x - st.pos.x) > 60 * S) {
     duo.x = clamp(st.pos.x - duo.cdx * S, 24 * S, W - 24 * S);
     duo.glitch = 0.35; sfx.glitch();
   }
@@ -654,7 +671,7 @@ function drawCoil(front) {
 }
 
 function drawD() {
-  if (!duoShown()) return;
+  if (!duoShown() || duo.ride || duo.tp) return;
   const S = DS();
   const name = duo.frame;
   const [rx, ry] = DUO.rects[name];
@@ -1181,7 +1198,7 @@ function update(dt) {
     if (Math.random() < dt * 3) sfx.crackle(0.12, 30);
   }
   if (st.mode !== 'dragging' && !st.party) st.rot = lerp(st.rot, 0, 0.2);
-  if (st.party) party.tick(dt);
+  if (st.party) (st.party.kind === 'ride' ? ride.tick(dt) : party.tick(dt));
 
   fx.update(dt);
 }
@@ -1403,6 +1420,7 @@ function draw() {
   ctx.imageSmoothingEnabled = false;
 
   fx.drawBehind(ctx);
+  ride.drawBack(ctx);
 
   if (st.visible && !st.orb && !st.hideSprite && st.levitate > 0.05 && !duoCoil()) drawHoverField();
 
@@ -1421,6 +1439,7 @@ function draw() {
     }
   }
 
+  ride.drawFront(ctx);
   fx.drawFront(ctx, W, H, st.visible ? headScreen() : null);
   positionUi();
 }
@@ -1448,11 +1467,13 @@ function spriteTop() {
 function positionUi() {
   if (!bubble.hidden) {
     const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
-    const left = clamp(st.pos.x - bw / 2, 8, W - bw - 8);
-    const top = clamp(spriteTop() - bh - 18, 8, H - bh - 8);
+    const an = ride.anchor();                    // on the car: over her head up there
+    const ax = an ? an.x : st.pos.x;
+    const left = clamp(ax - bw / 2, 8, W - bw - 8);
+    const top = clamp((an ? an.top : spriteTop()) - bh - 18, 8, H - bh - 8);
     bubble.style.left = left + 'px';
     bubble.style.top = top + 'px';
-    bubble.style.setProperty('--tail-x', clamp(st.pos.x - left, 22, bw - 22) + 'px');
+    bubble.style.setProperty('--tail-x', clamp(ax - left, 22, bw - 22) + 'px');
   }
   if (!typebox.hidden) {
     const tw = typebox.offsetWidth;
@@ -1659,8 +1680,8 @@ function poke(at) {
 // ------------------------------------------------------------------ typing
 const typeinput = $('typeinput');
 function openTypebox() {
-  if (st.party) {                                // High Forever: talk to her by voice only
-    say(`No typing mid-party! Talk to me instead (${cfg.hotkeyTalk || 'your talk hotkey'}).`, { seconds: 3.5, cps: 90 });
+  if (st.party) {                                // High Forever / In Love With Myself: talk to her by voice only
+    say(`No typing ${st.party.kind === 'ride' ? 'while we ride' : 'mid-party'}! Talk to me instead (${cfg.hotkeyTalk || 'your talk hotkey'}).`, { seconds: 3.5, cps: 90 });
     return;
   }
   typebox.hidden = false;
@@ -1950,6 +1971,34 @@ const party = initParty({
   partyEnded: () => duoPartyEnded(),
 });
 
+// ------------------------------------------------------------------ In Love With Myself (the car ride with D)
+function dFramePixels(evenHidden = false) {     // D's opaque pixels on screen, with their colours
+  if (!ddata || !duo.shown || (!evenHidden && !duoShown())) return [];
+  const [rx, ry] = DUO.rects[duo.frame];
+  return dPixels(duo.frame)[0].map(([x, y]) => {
+    const i = ((ry + y) * dsheet.width + rx + x) * 4, p = dScreen(x, y);
+    return { x: p.x, y: p.y, s: DS(), c: `rgb(${ddata[i]},${ddata[i + 1]},${ddata[i + 2]})` };
+  });
+}
+const ride = initRide({
+  api, st, fx, sfx, ensureVisible, endChill, hideBubble, say, setEmotion,
+  closeNotes: () => notes.close(true),
+  closeTypebox: () => { if (!typebox.hidden) closeTypebox(); },
+  dims: () => ({ W, H }),
+  coreScreen: () => toScreen(AX, CORE_Y),
+  duoOn: () => duo.on,
+  duoReady: () => duoShown() && duo.arrive <= 0.2 && duo.leave <= 0,
+  duoX: () => duo.x,
+  duoGlitch: () => { duo.glitch = 0.35; },
+  charge: () => { play('charge', 1.2); st.partyRed = true; manyEyes(0.8); },
+  capriPixels: () => { if (!st.visible) return []; compose(); return framePixels(1).map((p) => ({ ...p, s: S })); },
+  dPixels: () => dFramePixels(true),
+  capriAnchor: () => feet(),
+  dAnchor: () => ({ x: duo.x, y: dGround() }),
+  hideForRide: () => { st.hideSprite = true; st.partyRed = false; st.red = 0; st.redOn = false; st.action = null; duo.ride = true; },
+  unhide: () => { st.hideSprite = false; duo.ride = false; st.partyRed = false; fx.S = S; },
+});
+
 // ------------------------------------------------------------------ events from main
 api.onTalkToggle(async () => {
   sfx.audio();
@@ -1966,7 +2015,7 @@ api.onReminder(async (msg) => {
 });
 api.onToast((msg) => say(msg, { seconds: 3 }));
 // she asks before doing something risky in your browser (or before linking a new browser)
-if (api.onConfirmAsk) api.onConfirmAsk(async ({ id, text, seconds = 60 }) => {
+if (api.onConfirmAsk) api.onConfirmAsk(async ({ id, text, seconds = 60, category, categoryLabel }) => {
   await ensureVisible();
   setEmotion('surprised', 3, false);
   fx.showEmote('?', 1.6);
@@ -1977,17 +2026,41 @@ if (api.onConfirmAsk) api.onConfirmAsk(async ({ id, text, seconds = 60 }) => {
     buttons: [
       { label: 'Yes, do it', onClick: () => { st.confirmId = null; hideBubble(); api.confirmAnswer(id, true); } },
       { label: 'No', secondary: true, onClick: () => { st.confirmId = null; hideBubble(); api.confirmAnswer(id, false); } },
+      // "stop asking me": allows this kind of thing from now on (Settings → Permissions turns it back off)
+      ...(category ? [{ label: 'Always allow', secondary: true, title: `Don't ask again for ${categoryLabel}`, onClick: () => { st.confirmId = null; hideBubble(); api.confirmAnswer(id, true, true); say(`Okay! I won't ask again for ${categoryLabel}. (Settings → Permissions to change it.)`, { seconds: 4 }); } }] : []),
     ],
   });
 });
+// she's working on the PC: a glance (eyes) when she looks at the screen, a bolt to the spot she clicks
+if (api.onPcAct) api.onPcAct(async (a) => {
+  if (!a || !st.visible) return;
+  if (a.kind === 'look') { manyEyes(1.2); return; }
+  if (a.kind === 'click' && Number.isFinite(a.x)) {
+    if (st.mode === 'idle' && !st.action && !st.party) { st.flip = a.x >= st.pos.x ? 1 : -1; play('cast', 0.6); }
+    const o = orbScreen();
+    fx.bolt(o.x, o.y, a.x, a.y, { life: 0.25, width: 1.4, branches: 2 });
+    fx.ring(a.x, a.y, { r0: S * 2, r1: S * 10, life: 0.35 });
+    sfx.zap(0.5);
+  }
+});
 if (api.onConfirmCancel) api.onConfirmCancel((id) => { if (st.confirmId === id) { st.confirmId = null; hideBubble(); } });
 api.onSay(async ({ text, emotion }) => { await ensureVisible(); speak(text, emotion || 'neutral'); });
-api.onDismiss(async () => { hideBubble(); stopSpeaking(); notes.close(true); party.stop(true); await teleportOut(); });
+api.onDismiss(async () => { hideBubble(); stopSpeaking(); notes.close(true); party.stop(true); ride.stop(true); await teleportOut(); });
 api.onSummon(async () => { if (!st.visible) await teleportIn(st.pos.x, { dramatic: true }); });
-if (api.onDuo) api.onDuo((on) => (on ? callD() : uncallD()));
+if (api.onDuo) api.onDuo((on) => {
+  if (on) { callD(); return; }
+  if (st.party && st.party.kind === 'ride') {     // D is on the car: he can't leave mid-ride
+    api.setConfig({ dOut: true });
+    say("D can't leave mid-ride! Stop the ride first.", { seconds: 3 });
+    return;
+  }
+  uncallD();
+});
 api.onAction(async (name) => {
-  if (name === 'high_forever') { party.start(); return; }
+  if (name === 'high_forever') { if (st.party && st.party.kind === 'ride') return; party.start(); return; }
   if (name === 'high_forever_stop') { party.stop(); return; }
+  if (name === 'in_love') { if (st.party && st.party.kind !== 'ride') return; ride.start(); return; }
+  if (name === 'in_love_stop') { ride.stop(); return; }
   if (st.party) return;                          // mid-party: the party is the only action
   await ensureVisible();
   if (duoAction(name)) return;
@@ -2056,6 +2129,7 @@ function idleTick() {
   if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill || st.notesOpen || st.party) return;
   const now = performance.now();
   const r = Math.random();
+  if (activityReact(now)) return;
   // left alone for a while: sometimes she just leans back and chills
   if (now - st.lastInteraction > 45e3 && Math.random() < 0.22 && startChill()) return;
   const free = cfg.autonomy;
@@ -2073,6 +2147,43 @@ function idleTick() {
     say(line, { seconds: 5 });
   }
 }
+
+// "Make her more alive": what you're doing on your main screen colours what she does when she's idle
+// (main.js / src/activity.js send the mood: music | watch | game | focus, or null)
+st.activityMood = null;
+function activityReact(now) {
+  const m = st.activityMood;
+  if (!m) return false;
+  const r = Math.random();
+  if (m === 'music') {                      // vibing: little hops and music notes
+    if (r < 0.45) { fx.showEmote('note', 1.4); hop(0.55); setTimeout(() => { if (st.mode === 'idle') hop(0.45); }, 420); setEmotion('happy', 2, false); return true; }
+    return r < 0.7;                         // and she wanders less
+  }
+  if (m === 'watch') {                      // watching with you: she leans back and stays put
+    if (r < 0.5 && startChill(rand(40, 80))) return true;
+    if (r < 0.7) { st.lookOverride = { dx: pick([-1, 1]), until: now + 2500 }; return true; }
+    return r < 0.9;
+  }
+  if (m === 'game') {                       // cheering
+    if (r < 0.25) { charge(1.1); fx.showEmote('!', 1.1); return true; }
+    return r < 0.5;
+  }
+  if (m === 'focus') {                      // you're busy: no dashing or teleporting around, the odd glance
+    if (r < 0.2) { st.lookOverride = { dx: pick([-1, 1]), until: now + 1500 }; return true; }
+    return r < 0.8;
+  }
+  return false;
+}
+if (api.onActivityMood) api.onActivityMood((m) => { st.activityMood = m || null; });
+if (api.onActivitySay) api.onActivitySay(async ({ text, emotion, category } = {}) => {
+  if (!text || !st.visible || st.party || st.drag || !typebox.hidden || st.notesOpen) return;
+  if (st.mode !== 'idle' || st.confirmId) return;   // never over you, her own talking, or a question she's asking
+  if (category === 'music') fx.showEmote('note', 1.4);
+  else if (category === 'game') fx.showEmote('!', 1.2);
+  st.lastInteraction = performance.now();
+  speak(text, emotion || 'happy', { quick: true });
+  api.activitySpoken(text);
+});
 
 async function greet() {
   const h = new Date().getHours();
@@ -2096,7 +2207,7 @@ async function greet() {
 
 // ------------------------------------------------------------------ boot
 requestAnimationFrame(loop);
-window.__test = { scaleNow: () => S, party, notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
+window.__test = { scaleNow: () => S, party, ride, notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
 window.__ready = true;
 await sleep(500);
 await teleportIn(st.pos.x, { dramatic: true });

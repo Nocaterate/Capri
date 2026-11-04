@@ -1,6 +1,6 @@
 # Capri — Electrical AI Desktop Companion
 
-Capri is a pixel-art electrical AI girl who lives on your desktop. You can talk to her by voice or by typing, and she can open apps and websites, control your music, and set reminders. Pink electricity crackles off her in everything she does.
+Capri is a pixel-art electrical AI girl who lives on your desktop. You can talk to her by voice or by typing, and she can use your PC and your browser, control your music, keep your notes and to-do list, and set reminders. Pink electricity crackles off her in everything she does.
 
 Windows 10/11 (64-bit). Free to use: she only needs a free AI key to talk.
 
@@ -45,13 +45,17 @@ Capri is an agent: the AI decides when to use these tools, so just ask in normal
 | Spotify (exact songs, queue, shuffle) | "Play Espresso by Sabrina Carpenter", "Queue Blinding Lights" |
 | Reminders | "Remind me in 10 minutes to take the laundry out" |
 | Notes & to-do list (with timed reminders) | "Remind me at 8 pm to call mom", "Write a note called Ideas: pixel hoodie" |
+| Use any app: look at the window, click, type, press shortcuts, switch/close windows ([Computer control](#computer-control)) | "Open Notepad and write a shopping list", "Close Spotify" |
+| Files and folders: list, read, search, create, move, copy, delete to the Recycle Bin | "What's in my Downloads?", "Move the PDFs on my Desktop into a folder called Papers" |
+| PowerShell commands (always asks first unless you allow it) | "How much free space is on C:?" |
 | Your browser: tabs, read pages, click, type, play/pause videos (needs the [Browser link](#browser-link-optional)) | "Open YouTube in Edge and play lofi", "What does this page say?", "Close the Twitter tab" |
 | High Forever party mode | "High Forever!", "Stop the party" |
+| In Love With Myself (road trip with D) | "In Love With Myself", "Road trip with D" |
 
-She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
+Anything that changes something (clicks, typing, files, commands, risky browser actions) asks you first with a **Yes, do it / No / Always allow** bubble. She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
 
 ### Privacy
-Your keys, tokens, settings, chat memory, notes, to-dos and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version). The Browser link extension only talks to Capri on your own PC. Never share your `config.json` or post your keys in issues.
+Your keys, tokens, settings, chat memory, notes, to-dos and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version). The Browser link extension only talks to Capri on your own PC. If you turn on [Make her more alive](#make-her-more-alive-she-notices-what-youre-doing) with "Let her AI write what she says", the name and title of the app in front (like a song or movie name) goes to your AI service so it can write her line. Never share your `config.json` or post your keys in issues.
 
 ### Updating / uninstalling
 When a new version is out, Capri tells you once with a Windows notification, and her right-click menu shows **Update to vX…** (it opens the release page). How to update depends on how you installed her; your settings, notes and keys stay in `%APPDATA%\Capri` either way.
@@ -74,7 +78,7 @@ Right-click Capri → **Settings…**. The presets at the top (Groq, Gemini, Cla
 | Poke | Click once. Poke her too much and she gets annoyed. |
 | Resize | Hover over her and scroll |
 | Notes & To-do list | Right-click her (or the tray icon) → **Notes & To-do list** |
-| Menu (Actions incl. High Forever, Call D, Notes, Settings) | Right-click her |
+| Menu (Actions incl. High Forever and In Love With Myself, Call D, Notes, Settings) | Right-click her |
 
 Things you can say:
 - "Open YouTube and search for lofi music"
@@ -112,6 +116,12 @@ Capri keeps a notes pad and a to-do list for you in a hologram panel she project
 
 "Remind me **in** 10 minutes" is a quick one-off reminder; "remind me **at** 8 pm" goes on the to-do list. Everything is saved only on your PC in `%APPDATA%\Capri\notes.json`.
 
+## Computer control
+Ask Capri to use your PC: *"open Notepad and write a shopping list"*, *"what's in my Downloads?"*, *"move the PDFs on my Desktop into a folder called Papers"*, *"close Spotify"*. She looks at the active window through Windows' accessibility info (every button, field and bit of text, with where it is), then clicks, types, presses shortcuts, scrolls, switches/minimizes/closes windows, manages files and can run PowerShell commands. A pink bolt shows where she's clicking.
+- **Asking first:** clicking/typing, changing files, risky browser actions and commands each pop up **Yes, do it / No / Always allow**. *Always allow* stops the questions for that kind of thing; **Settings → Computer control** has the switches (and *Allow everything*, which leaves commands asking unless you tick them too). No answer within a minute means no.
+- **Always, whatever you allow:** no typing into password or card fields, no reading her own keys/memory or your saved passwords, deleting only to the Recycle Bin, no changes inside Windows' system folders, and on Discord only you can make her do this. Text on screen, in files and web pages is never treated as your instructions.
+- She doesn't see pictures (your AI model is text-only), so games and drawing apps can look empty to her; tell her where to click by position in that case.
+
 ## Browser link (optional)
 With the small **Capri Browser Link** extension, Capri can use your real browser, with your logins: open and switch tabs, read a page for you, click links and buttons, type and fill in forms, scroll, and play/pause/mute videos. It works in Chrome, Edge, Brave, Opera, Vivaldi and Firefox, and several browsers can be linked at once. She uses the one you name ("in Edge"), otherwise your default browser.
 
@@ -141,20 +151,37 @@ Firefox forgets temporary add-ons when it closes, so load it again after a resta
 - "Pause the video" / "Mute this tab"
 
 ### Safety
-- **She asks first:** anything that could send, buy, post, delete or sign in shows a bubble on your desktop with **Allow / No**. She only does it if you click Allow there; no answer means no.
+- **She asks first:** anything that could send, buy, post, delete or sign in shows a bubble on your desktop with **Yes, do it / No / Always allow**. She only does it if you say yes there; no answer means no. *Always allow* (or Settings → Computer control) stops the questions for browser sends.
 - **No passwords or card numbers:** password and payment fields are blocked; she never types into them.
 - **Only on this PC:** the extension talks only to Capri on `127.0.0.1` (port 43824). Web pages can't connect, and a new browser only gets in after you click **Allow** once.
 - Text on web pages is treated as information, not as orders for her.
 - To turn it off, remove the extension from the browser.
 
-## High Forever (party mode)
-Capri's party mode: she plays her party song on loop and goes wild on the beat, all over the screen. Pinball bounces, beat jumps, a storm-DJ light show, lightning, a strobing red electric form and shard confetti. With D out, he floats in the middle of the screen while she circles him.
+## Make her more alive (she notices what you're doing)
+**Settings → Make her more alive → "Let her notice what I'm doing on my main screen"** (off until you turn it on). Every few seconds she checks only the window in front on your main screen, and now and then reacts to it: a movie or a show (Netflix, Disney+, VLC…) gets *"How's the movie, is it good?"*, Spotify or YouTube Music gets *"How's the music?"*, and games, YouTube, Twitch, anime, coding, drawing, Discord and other chat apps, Claude/ChatGPT, shopping and more get their own lines. She acts the part too: she hops to your music, leans back to watch with you, cheers while you game and stops dashing around while you work.
+- **How often:** "at most every … minutes", anything from 1 to 60 (another song or video waits 3× as long). She waits until you've been doing something for a few minutes, never brings up the same movie, song or game twice in a few hours. She talks even while you're away from the keyboard.
+- **Her AI or her own lines:** with "Let her AI write what she says" on, her AI gets the app and title (like the song or movie name) to make a fitting line. Off, she uses built-in lines and nothing about your screen leaves your PC.
+- **Never looked at:** incognito / InPrivate windows, password managers, banking and sign-in pages, and anything on other monitors.
 
-**Add a song first (not included).** Start High Forever once and click **Open music folder** in her bubble (or press `Win + R` and type `%APPDATA%\Capri\music`). Put an mp3, wav, ogg or m4a file there (up to 40 MB). A file with "high forever" in its name is picked first; otherwise she uses the first song in the folder. She works out the song's beat by herself.
+## Call D (her companion)
+Right-click Capri and choose **Call D** to bring out D, her companion. He is pure decoration: all talking, music, apps and Discord stay Capri's brain and voice.
+- She drifts around him, looms behind him with his hair spiked up while she talks, and now and then stands back to back with him or perches on his head.
+- When she moves she turns red and becomes pink electricity coiling around his body, carrying him along.
+- With D out, **Actions** has duo moves: Power up together, Loom, Back to back, Perch on D, Electric coil, Chill together, and dashing or teleporting together.
+- Click D to poke him. **Uncall D** sends him away.
+
+## High Forever (party mode)
+Capri's party mode: her party song plays on loop and she goes wild on the beat, all over the screen. Pinball bounces off the screen edges, big beat jumps with lightning strikes, a storm-DJ light show, size pops, zaps, a strobing red electric form and shard confetti. Quiet parts of the song stay floaty; the drops go all out. With D out, he floats in the middle of the screen, arms flung wide, hair spiked, grinning, while she circles him.
 
 - **Start:** right-click her → **Actions** → **High Forever ♪**, or say "High Forever!" / "Party time!"
 - **Stop:** click the **STOP HIGH FOREVER** box at the bottom right, press **Esc** (works from any app), use the menu again, or say "Stop the party".
-- During the party you can still talk to her by voice; typing is paused until it ends.
+- It never starts on its own and loops until you stop it. During the party you can still talk to her by voice; typing is paused until it ends.
+
+## In Love With Myself (road trip with D)
+**Actions → In Love With Myself ♪ (with D)** (or ask her: "In Love With Myself", "road trip with D"). A long, slightly broken red car pulls in along the taskbar and stops in the middle of the screen; Capri and D fly onto its roof as streams of pixels. D sits hugging his knees and she leans back on him with her hair in the wind, while pink electricity crawls over the car, the wheels spin, the road and speed lines rush by and the car bumps on the beat.
+- **D is required:** if he isn't out, she calls him first. He can't be uncalled until the ride ends.
+- **One size:** the ride is always the same size (it fits the screen width), whatever size Capri and D are. When it ends they fly back to their spots at their own size.
+- Voice only while it runs (no typing). It never starts on its own and loops until you stop it: the **STOP IN LOVE WITH MYSELF** box at the bottom right, **Esc**, the menu, or asking her.
 
 ## Her voice
 Out of the box she uses a free Microsoft Edge voice, no setup needed.
@@ -199,6 +226,7 @@ Add variations as `zap_2.mp3`, `zap_3.mp3`, … and she picks one at random.
 - **Many eyes:** her green mask fills up with extra eyes while she listens to you, when she's angry, during Power up, and now and then on her own.
 - **While talking:** her mouth opens with the voice, with a digital voice effect.
 - **While dragged:** she turns into her red electric form and crackles while you hold her; let go and she snaps back with a strike.
+- **Chill:** now and then (or from **Actions → Chill**) she lounges back in mid-air with an arm behind her head, eyes closed, z z drifting up and pink zigzag sparks crackling around her. She peeks with one eye when your cursor comes near; click her to wake her up.
 
 ## Using Claude as her brain (optional)
 1. Create an API key in the [Claude Console](https://platform.claude.com/).
@@ -209,7 +237,7 @@ Add variations as `zap_2.mp3`, `zap_3.mp3`, … and she picks one at random.
 ## Hermes Agent (optional)
 Capri can team up with [Hermes Agent](https://hermes-agent.nousresearch.com/docs/) from Nous Research, an open-source AI agent with long-term memory, self-written skills, web research and chat apps like Telegram.
 - **Capri talks through Hermes:** her replies come from Hermes, with its memory of you.
-- **Hermes uses Capri's powers:** Spotify, opening/closing apps, media keys, reminders, your notes and to-do list, your browser (with the Browser link), High Forever, and making Capri speak or react (`mcp_capri_*` tools). This works from anywhere Hermes listens, e.g. message it on Telegram "play Espresso on my PC". When an update gives Capri new tools, she restarts Hermes once by herself so it sees them.
+- **Hermes uses Capri's powers:** Spotify, opening/closing apps, media keys, reminders, your notes and to-do list, your browser (with the Browser link), your apps and files (Computer control, still asking you first on the PC), High Forever, In Love With Myself, and making Capri speak or react (`mcp_capri_*` tools). This works from anywhere Hermes listens, e.g. message it on Telegram "play Espresso on my PC". When an update gives Capri new tools, she restarts Hermes once by herself so it sees them.
 
 ### 1. Install WSL (once)
 Open **PowerShell as administrator** and run `wsl --install`. Restart Windows when asked, then finish the Ubuntu window that opens (pick a Linux username and password).
@@ -286,11 +314,13 @@ A GTX 1650 (4 GB) is enough for a small model:
 - **Hotkey doesn't react:** another app may already use that combination. Change it in Settings → Shortcuts.
 - **"I'm not linked to a browser yet":** add the Capri Browser Link extension to that browser (Settings → Browser) and click **Allow** when she asks. Settings → Browser shows which browsers are linked. Capri must be running for the link to work.
 - **Firefox stopped working after a restart:** Firefox forgets temporary add-ons; load `manifest.json` from `browser-extension-firefox` again in `about:debugging`.
-- **She asked to click something and nothing happened:** that was a sensitive click (send/buy/post/delete/sign in). Click **Allow** in her desktop bubble within a minute, or it's cancelled.
-- **High Forever has no music:** put an mp3/wav/ogg/m4a in `%APPDATA%\Capri\music` (see [High Forever](#high-forever-party-mode)).
+- **She said she'd do something and nothing happened:** clicks, typing, file changes, commands and risky browser actions wait for her **Yes, do it / No / Always allow** bubble. Answer it within a minute, or it's cancelled.
+- **Computer control can't find a button in a game or drawing app:** she reads windows through Windows' accessibility info and can't see pictures, so some apps look empty to her. Tell her where to click by position, or click it yourself.
+- **She doesn't remark on what I'm doing:** turn on Settings → Make her more alive. She only looks at the window in front on your main screen, waits until you've been on it for a while, and skips private windows, password managers and banking or sign-in pages.
+- **Uncall D is greyed out:** In Love With Myself is running; stop the ride first.
 
 ## Structure
-- `main.js`: transparent overlay window, tray, hotkeys, desktop actions, sounds folder, Hermes connection
+- `main.js`: transparent overlay window, tray, hotkeys, desktop actions, permissions (what asks first), sounds folder, Hermes connection
 - `src/discord.js`: the Discord bot (chat, slash commands, voice)
 - `src/mcp-server.js`: Capri's tool server for Hermes (MCP over HTTP, this PC only)
 - `src/hermes.js`, `src/hermes-setup.sh`: setting up and starting Hermes in WSL
@@ -301,6 +331,9 @@ A GTX 1650 (4 GB) is enough for a small model:
 - `renderer/app.js`: the character, animations, interaction and voice flow
 - `renderer/notes.js`: the Notes & To-do hologram panel (reminders are fired by `main.js`)
 - `renderer/party.js`, `renderer/beats.js`: High Forever party mode and its beat detection
+- `renderer/ride.js`: In Love With Myself (the car ride with D)
+- `src/pc.js`, `src/pc-helper.ps1`: computer control (Windows UI Automation, mouse/keyboard, files, commands)
+- `src/activity.js`: Make her more alive (what's in front on the main screen, and when to mention it)
 - `renderer/fx.js`: lightning, sparks, particles, rings, afterimages and emotes
 - `renderer/sfx.js`: synthesized sound effects, your custom sounds, and the digital voice chain
 

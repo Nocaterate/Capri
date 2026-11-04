@@ -24,7 +24,7 @@ export function initParty(env) {
     if (song) return true;
     if (loading) return loading;
     loading = (async () => {
-      const s = await api.partySong().catch(() => null);
+      const s = await api.partySong('high_forever').catch(() => null);
       if (!s || !s.bytes) return false;
       ac = ac || new AudioContext();
       const buf = await ac.decodeAudioData(s.bytes.buffer.slice(s.bytes.byteOffset, s.bytes.byteOffset + s.bytes.byteLength));
@@ -88,7 +88,9 @@ export function initParty(env) {
       st.partyRed = true;
       st.lastInteraction = performance.now();
       playSong();
-      api.partyState(true);
+      api.partyState(true, 'party');
+      document.getElementById('party-label').textContent = 'STOP HIGH FOREVER';
+      box.title = 'Stop High Forever (Esc)';
       box.hidden = false;
       boxSong.textContent = have ? `♪ ${songName}` : '♪ no song yet';
       box.classList.remove('in'); void box.offsetWidth; box.classList.add('in');
@@ -113,7 +115,7 @@ export function initParty(env) {
     p = null;
     st.party = null; st.partyRed = false; st.partyFrame = null;
     stopSong();
-    api.partyState(false);
+    api.partyState(false, 'party');
     box.hidden = true;
     env.restoreScale(was.sizeSetting);
     if (st.mode === 'party') st.mode = 'idle';

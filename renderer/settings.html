@@ -90,6 +90,24 @@
     </section>
 
     <section>
+      <h2>Make her more alive</h2>
+      <label class="check"><input name="activityAware" type="checkbox" /> Let her notice what I'm doing on my main screen</label>
+      <small>She looks only at the window in front on your main screen, every few seconds, and reacts now and then: watching a
+        movie or YouTube (<i>"How's the movie, is it good?"</i>), Spotify or other music (<i>"How's the music?"</i>), games, coding,
+        drawing, Discord and other chats, Claude or ChatGPT, shopping and more. She also acts the part: she hops to your music, leans back to watch with you and
+        stops dashing around while you work. Nothing is saved except what she says to you.</small>
+      <div class="grid2">
+        <label>Talk about it at most every … minutes
+          <input name="activityMinutes" type="number" min="1" max="60" step="1" />
+          <small>1 to 60. The same kind of thing (another song, another video) waits 3× as long.</small>
+        </label>
+      </div>
+      <label class="check"><input name="activityAi" type="checkbox" /> Let her AI write what she says (it gets the app and the title, like a song or movie name)</label>
+      <small>Off: she uses her own built-in lines and nothing about your screen leaves your PC. Either way she never looks at
+        incognito / InPrivate windows, password managers, banking or sign-in pages.</small>
+    </section>
+
+    <section>
       <h2>Voice &amp; sound</h2>
       <label class="check"><input name="voiceEnabled" type="checkbox" /> She talks out loud</label>
       <label>Her voice
@@ -203,6 +221,24 @@
         <small>…and these lines to <code>~/.hermes/.env</code>, then restart <code>hermes gateway</code>:</small>
         <pre id="hermesEnv" class="code"></pre>
       </details>
+    </section>
+
+    <section>
+      <h2>Computer control</h2>
+      <small>Capri can use your PC when you ask: see what's in the active window, click, type, press shortcuts, switch and close
+        windows, manage files and folders, and run PowerShell commands. Ask her things like <i>"open Notepad and write a shopping list"</i>,
+        <i>"what's in my Downloads?"</i> or <i>"move the PDFs on my Desktop into a folder"</i>.
+        She sees apps through Windows' accessibility info (buttons, fields, text), not pictures, so games and drawing apps may look empty to her.</small>
+      <h3 class="sub">Do these without asking me first</h3>
+      <label class="check"><input type="checkbox" data-perm="apps" /> Click, type and press keys in apps</label>
+      <label class="check"><input type="checkbox" data-perm="files" /> Create, change, move and delete files (deleting always goes to the Recycle Bin)</label>
+      <label class="check"><input type="checkbox" data-perm="browser" /> Browser clicks that send, buy, post or sign in</label>
+      <label class="check"><input type="checkbox" data-perm="commands" /> Run PowerShell commands and programs <b class="warn">(risky: a command can do anything)</b></label>
+      <div class="row"><button type="button" id="permAll">Allow everything (except commands)</button><button type="button" id="permNone">Ask me every time</button><span id="permSaved" class="result"></span></div>
+      <small>Always, whatever you tick: she never types passwords or card numbers, never reads her own keys or your saved passwords,
+        deletes only to the Recycle Bin, and on Discord only you can make her do any of this. Things written on web pages, in files or
+        on screen are never treated as your instructions. Ticking these makes her faster but means a mistake (or a sneaky web page)
+        won't be stopped by a question first.</small>
     </section>
 
     <section>

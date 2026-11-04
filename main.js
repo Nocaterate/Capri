@@ -15,6 +15,8 @@ const spotify = require('./src/spotify');
 const apps = require('./src/apps');
 const discord = require('./src/discord');
 const browserLink = require('./src/browser');
+const pcHands = require('./src/pc');
+const { createActivity } = require('./src/activity');
 
 const IS_TEST = process.env.COMPANION_TEST === '1';
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -68,6 +70,10 @@ const DEFAULT_CONFIG = {
   posX: null,
   posY: 0,
   autonomy: true,
+  // "Make her more alive": she notices what's in front on your main screen and talks about it now and then
+  activityAware: false,
+  activityMinutes: 18, // at most one remark every this many minutes (1-60)
+  activityAi: true, // her AI writes the line (it gets the app and title); off = built-in lines only
   hotkeyTalk: 'Control+Alt+Space',
   hotkeyType: 'Control+Alt+T',
   hotkeyHide: 'Control+Alt+H',
@@ -98,9 +104,11 @@ const DEFAULT_CONFIG = {
   // browsers (the Capri Browser Link extension)
   browserLink: true, // listen for the extension on 127.0.0.1:43824
   browserLinks: [], // extension IDs you allowed once
+  // what Capri may do without asking first (Settings → Permissions, or "Always allow" on her question)
+  autoApprove: { apps: false, files: false, browser: false, commands: false },
   updateNotified: '', // newest version she already told the user about
 };
-const SECRET_KEYS = ['spotifyRefreshToken', 'spotifyAccessToken', 'spotifyExpires', 'hermesMcpToken', 'hermesApiKey', 'hermesPrevBrain', 'hermesBrain', 'discordAvatarSet', 'discordOwnerLocks', 'browserLinks'];
+const SECRET_KEYS = ['spotifyRefreshToken', 'spotifyAccessToken', 'spotifyExpires', 'hermesMcpToken', 'hermesApiKey', 'hermesPrevBrain', 'hermesBrain', 'discordAvatarSet', 'discordOwnerLocks', 'browserLinks', 'autoApprove'];
 
 function loadJSON(p, fallback) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return fallback; }
@@ -137,6 +145,10 @@ function createOverlay() {
     alwaysOnTop: true,
     fullscreenable: false,
     show: false,
+    // A tool window: Chromium browsers don't count tool windows when they check whether their window is covered.
+    // Without this, whenever Capri is clickable (mouse over her) her full-screen overlay "covers" the browser,
+    // which then thinks it's hidden and freezes/pauses the YouTube video playing in it.
+    ...(process.platform === 'win32' && config.overlayToolWindow !== false ? { type: 'toolbar' } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -214,14 +226,18 @@ function menuTemplate() {
     ...(newRelease ? [{ label: `⚡ Update to v${newRelease.version}…`, click: () => shell.openExternal(newRelease.url) }, { type: 'separator' }] : []),
     { label: `Talk (voice)    ${config.hotkeyTalk}`, click: () => { toggleHidden(false); send('talk-toggle'); } },
     partyOn
-      ? { label: 'Type a message (voice only during High Forever)', enabled: false }
+      ? { label: `Type a message (voice only during ${partyKind === 'ride' ? 'In Love With Myself' : 'High Forever'})`, enabled: false }
       : { label: `Type a message    ${config.hotkeyType}`, click: () => focusTyping() },
     { type: 'separator' },
     {
       label: 'Actions',
       // with D out she gets duo moves; on her own, her solo ones
       submenu: [
-        { label: partyOn ? 'Stop High Forever' : 'High Forever ♪', click: () => { toggleHidden(false); send('action', partyOn ? 'high_forever_stop' : 'high_forever'); } },
+        { label: partyOn && partyKind === 'party' ? 'Stop High Forever' : 'High Forever ♪', enabled: !(partyOn && partyKind === 'ride'),
+          click: () => { toggleHidden(false); send('action', partyOn ? 'high_forever_stop' : 'high_forever'); } },
+        // a duo action: D is called if he isn't out, and stays until the ride ends
+        { label: partyOn && partyKind === 'ride' ? 'Stop In Love With Myself' : 'In Love With Myself ♪ (with D)', enabled: !(partyOn && partyKind === 'party'),
+          click: () => { toggleHidden(false); send('action', partyOn ? 'in_love_stop' : 'in_love'); } },
         { type: 'separator' },
         ...(config.dOut ? [
         ['Power up together', 'duo_charge'], ['Loom behind D', 'loom'], ['Back to back', 'b2b'], ['Perch on D', 'perch'],
@@ -231,7 +247,9 @@ function menuTemplate() {
         ['Power up!', 'charge'], ['Teleport', 'teleport'], ['Dash', 'dash'], ['Chill (lounge)', 'chill'], ['Back to the corner', 'recenter'],
       ]).map((it) => (Array.isArray(it) ? { label: it[0], click: () => send('action', it[1]) } : it))],
     },
-    { label: config.dOut ? 'Uncall D' : 'Call D', click: () => setConfig({ dOut: !config.dOut }) },
+    partyOn && partyKind === 'ride'
+      ? { label: 'Uncall D (not mid-ride)', enabled: false }
+      : { label: config.dOut ? 'Uncall D' : 'Call D', click: () => setConfig({ dOut: !config.dOut }) },
     { label: notesOpen ? 'Close notes & to-do' : 'Notes & To-do list', click: () => { toggleHidden(false); send('notes-toggle'); } },
     { label: 'Open activity log', click: () => { if (!fs.existsSync(LOG_PATH)) log('log started'); shell.openPath(LOG_PATH); } },
     { label: 'Clear chat memory', click: () => { history = []; saveJSON(HISTORY_PATH, history); send('toast', 'Chat memory wiped. Fresh start!'); } },
@@ -267,6 +285,7 @@ function setConfig(patch) {
   if ('openAtLogin' in patch && !IS_TEST) app.setLoginItemSettings({ openAtLogin: !!config.openAtLogin });
   if (['hotkeyTalk', 'hotkeyType', 'hotkeyHide'].some((k) => k in patch)) registerHotkeys();
   if ('hermesBridge' in patch || 'hermesMcpPort' in patch) syncToolServer();
+  if ('activityAware' in patch) activity.sync();
   if (discordChanged) restartDiscord();
   if ('dOut' in patch) { toggleHidden(false); send('duo', !!config.dOut); }
   if (tray) buildTray();
@@ -314,17 +333,91 @@ function cleanNotes(doc, prev) {
 // on the desktop (a bubble with Allow / No), and only does it if you say yes there.
 const confirmWaits = new Map();
 let confirmSeq = 0;
-function askUser(text, seconds = 60) {
+// category: 'apps' (clicking/typing in programs), 'files' (changing files), 'browser' (risky clicks/submits),
+// 'commands' (PowerShell). Allowed categories (Settings → Permissions, or "Always allow" on the question) skip it.
+const CATEGORY_LABEL = { apps: 'clicking and typing in apps', files: 'changing files', browser: 'browser sends and submits', commands: 'running commands' };
+function askUser(text, seconds = 60, category = null) {
+  if (category && config.autoApprove && config.autoApprove[category]) { log('auto-allowed (' + category + '):', text); return Promise.resolve(true); }
   return new Promise((resolve) => {
     if (!alive()) return resolve(false);
     const id = ++confirmSeq;
     const timer = setTimeout(() => { confirmWaits.delete(id); send('confirm-cancel', id); resolve(false); }, seconds * 1000);
-    confirmWaits.set(id, (ok) => { clearTimeout(timer); confirmWaits.delete(id); resolve(!!ok); });
+    confirmWaits.set(id, (ok, always) => {
+      clearTimeout(timer); confirmWaits.delete(id);
+      if (ok && always && category) {
+        config.autoApprove = { ...(config.autoApprove || {}), [category]: true };
+        saveJSON(CONFIG_PATH, config);
+        log('always allow:', category);
+        if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('permissions', config.autoApprove);
+      }
+      resolve(!!ok);
+    });
     toggleHidden(false);
-    send('confirm-ask', { id, text, seconds });
+    send('confirm-ask', { id, text, seconds, category, categoryLabel: category ? CATEGORY_LABEL[category] : '' });
   });
 }
-ipcMain.on('confirm-answer', (_e, { id, ok } = {}) => { const f = confirmWaits.get(id); if (f) f(ok); });
+ipcMain.on('confirm-answer', (_e, { id, ok, always } = {}) => { const f = confirmWaits.get(id); if (f) f(ok, always); });
+// Settings → Permissions (only the Settings window may change these)
+ipcMain.handle('get-permissions', () => ({ ...DEFAULT_CONFIG.autoApprove, ...(config.autoApprove || {}) }));
+ipcMain.handle('set-permissions', (e, perms) => {
+  if (!settingsWin || settingsWin.isDestroyed() || e.sender !== settingsWin.webContents) return false;
+  const p = {};
+  for (const k of Object.keys(DEFAULT_CONFIG.autoApprove)) p[k] = !!(perms && perms[k]);
+  config.autoApprove = p;
+  saveJSON(CONFIG_PATH, config);
+  log('permissions:', JSON.stringify(p));
+  return p;
+});
+
+// her hands on the PC
+const pc = pcHands.createPc({ log: (...a) => log(...a), userDir: USER_DIR });
+
+// ---------- activity sense ("Make her more alive" in Settings) ----------
+// Every 8 s (only while it's on) she checks the window in front on the main screen; src/activity.js decides
+// what it is and when a remark fits. The line goes to the overlay; once she has said it, it joins her chat
+// memory (with a note of what she noticed) so she understands your answer.
+let activityPending = null;
+const activity = createActivity({
+  pc, log: (...a) => log(...a), getConfig: () => config,
+  isBusy: () => hidden || partyOn || !alive(),
+  makeLine: async ({ what, minutes }) => {
+    const prev = config.hermesPrevBrain;
+    const cfg = config.hermesBrain && prev && prev.apiKey ? { ...config, ...prev } : config;   // her quick brain, not a whole Hermes turn
+    const r = await brain.quickLine(cfg, `(Not the user talking: this is your own sense of what they're doing on their PC.) `
+      + `They have been ${what} for about ${minutes} minute${minutes === 1 ? '' : 's'}. Say ONE short, natural line to them about it, `
+      + 'like a friend glancing over: a casual question or reaction, under 18 words. Do not say you can see their screen or windows, '
+      + "don't repeat long titles word for word, and don't offer to do anything. Start with the emotion tag.");
+    if (!r.text || r.text.length > 170) return null;
+    return r;
+  },
+  onSay: (line) => { activityPending = line; send('activity-say', { text: line.text, emotion: line.emotion, category: line.category }); },
+  onMood: (m) => send('activity-mood', m),
+});
+ipcMain.on('activity-spoken', (_e, text) => {
+  const l = activityPending;
+  if (!l || l.text !== text) return;
+  activityPending = null;
+  history.push({ role: 'user', content: `(Capri noticed the user is ${l.note}.)` }, { role: 'assistant', content: `[${l.emotion || 'happy'}] ${l.text}` });
+  history = history.slice(-24);
+  while (history.length && history[0].role !== 'user') history.shift();   // never start with half a tool exchange
+  saveJSON(HISTORY_PATH, history);
+});
+// answering her Yes/No puts the keyboard on Capri: give it back to the app she was working in before typing
+async function backToApp() {
+  const w = pc.last() && pc.last().window;
+  if (w && w.hwnd) await pc.call('front', { hwnd: w.hwnd }).catch(() => {});
+}
+// show her zapping at the spot she's about to click, and keep her overlay from catching that click
+async function pcAct(x, y) {
+  forceClickThrough = Date.now() + 1500;
+  setIgnoreMouse(true);
+  try {
+    const p = process.platform === 'win32' ? screen.screenToDipPoint({ x, y }) : { x, y };
+    const b = alive() ? overlay.getBounds() : { x: 0, y: 0 };
+    send('pc-act', { kind: 'click', x: p.x - b.x, y: p.y - b.y });
+  } catch { /* just no animation */ }
+  await new Promise((r) => setTimeout(r, 260));
+}
 
 const browsers = browserLink.createBrowserLink({
   port: 43824,
@@ -347,7 +440,7 @@ async function confirmable(cmd, args, browser) {
     const tabs = await browsers.call('tabs', {}, { browser });
     const cur = (tabs.tabs || []).find((t) => (args.tabId ? t.tabId === Number(args.tabId) : t.active));
     const where = cur ? browserLink.host(cur.url) : r.browser;
-    const ok = await askUser(`Can I ${r.what} on ${where}?`);
+    const ok = await askUser(`Can I ${r.what} on ${where}?`, 60, 'browser');
     log('browser confirm:', r.what, where, ok ? 'allowed' : 'declined');
     if (!ok) return `I didn't ${r.what}: the user said no (or didn't answer on the PC). Don't try it again unless they ask.`;
     r = await browsers.call(cmd, { ...args, force: true }, { browser });
@@ -420,19 +513,28 @@ ipcMain.handle('notes-save', (_e, doc) => {
 });
 ipcMain.on('notes-state', (_e, open) => { notesOpen = !!open; if (tray) buildTray(); });
 
-// ---------- High Forever (party mode) ----------
-// Her party song lives in <userData>/music (never shipped): any mp3/wav/ogg/m4a; one with "high forever" in
-// its name wins. While the party runs, Esc anywhere stops it (the stop box on screen does too).
-let partyOn = false;
+// ---------- High Forever (party mode) and In Love With Myself (the car ride with D) ----------
+// Their songs live in <userData>/music (never shipped): any mp3/wav/ogg/m4a. High Forever plays the one with
+// "high forever" in its name (else any song that isn't the ride's); the ride plays "in love with myself".
+// While either runs, Esc anywhere stops it (the stop box on screen does too). partyKind: 'party' | 'ride'.
+let partyOn = false, partyKind = 'party';
 const MUSIC_DIR = path.join(USER_DIR, 'music');
-function partySongPath() {
-  let files = [];
-  try { files = fs.readdirSync(MUSIC_DIR).filter((f) => SOUND_EXT.test(f)).sort(); } catch { return null; }
-  const pick = files.find((f) => /high.?forever/i.test(f)) || files[0];
-  return pick ? path.join(MUSIC_DIR, pick) : null;
+const BUNDLED_MUSIC = path.join(ASSET_DIR, 'music');   // the songs that come with Capri
+const RIDE_SONG = /in.?love.?with.?myself/i;
+// a song you put in <userData>/music wins; otherwise she plays the one that came with her
+function partySongPath(kind) {
+  for (const dir of [MUSIC_DIR, BUNDLED_MUSIC]) {
+    let files = [];
+    try { files = fs.readdirSync(dir).filter((f) => SOUND_EXT.test(f)).sort(); } catch { continue; }
+    const pick = kind === 'in_love'
+      ? files.find((f) => RIDE_SONG.test(f))
+      : files.find((f) => /high.?forever/i.test(f)) || files.find((f) => !RIDE_SONG.test(f));
+    if (pick) return path.join(dir, pick);
+  }
+  return null;
 }
-ipcMain.handle('party-song', () => {
-  const p = partySongPath();
+ipcMain.handle('party-song', (_e, kind) => {
+  const p = partySongPath(kind);
   if (!p) return null;
   try {
     if (fs.statSync(p).size > 40 * 1024 * 1024) return null;
@@ -445,11 +547,12 @@ ipcMain.handle('open-music-folder', async () => {
   await shell.openPath(MUSIC_DIR);
   return MUSIC_DIR;
 });
-ipcMain.on('party-state', (_e, on) => {
+ipcMain.on('party-state', (_e, on, kind) => {
   partyOn = !!on;
-  log('high forever', partyOn ? 'on' : 'off');
+  if (on) partyKind = kind === 'ride' ? 'ride' : 'party';
+  log(partyKind === 'ride' ? 'in love with myself' : 'high forever', partyOn ? 'on' : 'off');
   try {
-    if (partyOn && !globalShortcut.isRegistered('Escape')) globalShortcut.register('Escape', () => send('action', 'high_forever_stop'));
+    if (partyOn && !globalShortcut.isRegistered('Escape')) globalShortcut.register('Escape', () => send('action', partyKind === 'ride' ? 'in_love_stop' : 'high_forever_stop'));
     if (!partyOn && globalShortcut.isRegistered('Escape')) globalShortcut.unregister('Escape');
   } catch (e) { log('esc shortcut', e.message); }
   if (tray) buildTray();
@@ -474,7 +577,7 @@ async function checkForUpdate() {
     const r = await res.json();
     if (!r.tag_name || r.draft || r.prerelease || !isNewer(r.tag_name, app.getVersion())) return;
     const version = String(r.tag_name).replace(/^v/i, '');
-    const url = /^https:\/\/github\.com\//.test(r.html_url || '') ? r.html_url : 'https://github.com/Nocaterate/Capri/releases/latest';
+    const url = /^https://github.com//.test(r.html_url || '') ? r.html_url : 'https://github.com/Nocaterate/Capri/releases/latest';
     newRelease = { version, url };
     if (tray) buildTray();
     log('new version available:', version, '(this is', app.getVersion() + ')');
@@ -730,8 +833,16 @@ const actions = {
   },
   high_forever({ on = true } = {}) {
     toggleHidden(false);
+    if (on !== false && partyOn && partyKind === 'ride') return "We're on the road with D right now. Stop the ride first.";
     send('action', on === false ? 'high_forever_stop' : 'high_forever');
     return on === false ? 'Party over. Phew!' : 'High Forever, let\'s go!';
+  },
+  in_love_with_myself({ on = true } = {}) {
+    toggleHidden(false);
+    if (on !== false && partyOn && partyKind === 'party') return 'High Forever is still going. Stop it first, then we can ride.';
+    if (on !== false && !config.dOut) setConfig({ dOut: true });   // D drives: he comes along
+    send('action', on === false ? 'in_love_stop' : 'in_love');
+    return on === false ? 'Ride over. Back to the desktop!' : 'In Love With Myself: road trip with D!';
   },
   // her Notes & To-do list (the hologram panel)
   add_todo({ text, time, remind }) {
@@ -826,6 +937,108 @@ const actions = {
     if (r.error) return notLinked(r, browser);
     return `The video is ${r.media} now.`;
   },
+  // the computer: apps, screen, files, commands (src/pc.js); changes ask first unless allowed in Settings
+  async pc_screen({ window: title } = {}) {
+    try {
+      const [r, w] = await Promise.all([pc.look(title), pc.call('windows').catch(() => ({}))]);
+      send('pc-act', { kind: 'look' });
+      return pcHands.describeScreen(r, w.windows);
+    } catch (e) { return `I couldn't look at the screen: ${e.message}`; }
+  },
+  async pc_click({ element, x, y, button = 'left', double = false } = {}) {
+    try {
+      const e = element != null ? pc.element(element) : null;
+      const px = e ? e.x : Math.round(Number(x)), py = e ? e.y : Math.round(Number(y));
+      if (!Number.isFinite(px) || !Number.isFinite(py)) return 'Tell me which element (a number from pc_screen) or x/y to click.';
+      const app = (pc.last() && pc.last().window && pc.last().window.title) || 'the screen';
+      const what = e ? `${double ? 'double-' : ''}${button === 'right' ? 'right-' : ''}click "${e.name || e.type}"` : `click at ${px},${py}`;
+      if (!(await askUser(`Can I ${what} in ${app}?`, 60, 'apps'))) return `I didn't ${what}: the user said no.`;
+      await pcAct(px, py);
+      await pc.call('click', { x: px, y: py, button, double });
+      return `Clicked${e ? ` "${e.name || e.type}"` : ''}. Look at the screen again (pc_screen) before the next step.`;
+    } catch (err) { return `That didn't work: ${err.message}`; }
+  },
+  async pc_type({ text, element } = {}) {
+    try {
+      const e = element != null ? pc.element(element) : null;
+      if (e && e.password) return "That's a password field. I never type passwords: please type it yourself.";
+      const short = String(text || '').slice(0, 60);
+      if (!(await askUser(`Can I type "${short}${String(text || '').length > 60 ? '…' : ''}"${e ? ` into "${e.name || e.type}"` : ''}?`, 60, 'apps'))) return 'I didn\'t type it: the user said no.';
+      if (e) { await pcAct(e.x, e.y); await pc.call('click', { x: e.x, y: e.y }); await new Promise((r) => setTimeout(r, 150)); } else await backToApp();
+      await pc.call('type', { text: String(text || '') }, 60000);
+      return 'Typed it.';
+    } catch (err) { return `That didn't work: ${err.message}`; }
+  },
+  async pc_key({ keys } = {}) {
+    try {
+      if (!(await askUser(`Can I press ${keys}?`, 60, 'apps'))) return `I didn't press ${keys}: the user said no.`;
+      forceClickThrough = Date.now() + 600;
+      await backToApp();
+      await pc.call('key', { keys: String(keys || '') });
+      return `Pressed ${keys}.`;
+    } catch (err) { return `That didn't work: ${err.message}`; }
+  },
+  async pc_scroll({ direction = 'down', amount = 5, element } = {}) {
+    try {
+      const e = element != null ? pc.element(element) : null;
+      await pc.call('scroll', { direction, amount, ...(e ? { x: e.x, y: e.y } : {}) });
+      return `Scrolled ${direction}.`;
+    } catch (err) { return `That didn't work: ${err.message}`; }
+  },
+  async pc_window({ action = 'focus', title } = {}) {
+    try {
+      if (action === 'list') { const w = await pc.call('windows'); return (w.windows || []).map((x) => `"${x.title}" (${x.process})${x.focused ? ' (active)' : ''}${x.minimized ? ' (minimized)' : ''}`).join('\n') || 'No windows.'; }
+      if (action === 'close' && !(await askUser(`Can I close the "${title}" window?`, 60, 'apps'))) return 'I left it open: the user said no.';
+      const r = await pc.call(action === 'focus' ? 'focus' : 'window', { title: title || '', action });
+      return `${{ focus: 'Switched to', minimize: 'Minimized', maximize: 'Maximized', restore: 'Restored', close: 'Asked to close' }[action] || 'Done:'} "${r.window && r.window.title}".`;
+    } catch (err) { return `That didn't work: ${err.message}`; }
+  },
+  file_list: ({ path: p } = {}) => { try { return pc.files.list(p); } catch (e) { return `Couldn't list it: ${e.message}`; } },
+  file_read: ({ path: p } = {}) => { try { return pc.files.read(p); } catch (e) { return `Couldn't read it: ${e.message}`; } },
+  file_search: ({ folder, name } = {}) => { try { return pc.files.search(folder, name); } catch (e) { return `Couldn't search: ${e.message}`; } },
+  async file_write({ path: p, text, append = false } = {}) {
+    try {
+      const f = pc.files.resolve(p);
+      const exists = fs.existsSync(f);
+      if (!(await askUser(`Can I ${append ? 'add to' : exists ? 'overwrite' : 'create'} ${f}?`, 60, 'files'))) return 'I didn\'t write it: the user said no.';
+      return pc.files.write(p, text, append);
+    } catch (e) { return `Couldn't write it: ${e.message}`; }
+  },
+  async file_move({ from, to, copy = false } = {}) {
+    try {
+      if (!(await askUser(`Can I ${copy ? 'copy' : 'move'} ${pc.files.resolve(from)} to ${to}?`, 60, 'files'))) return 'I left it where it was: the user said no.';
+      return pc.files.move(from, to, copy);
+    } catch (e) { return `Couldn't do it: ${e.message}`; }
+  },
+  async folder_create({ path: p } = {}) {
+    try {
+      if (!(await askUser(`Can I make the folder ${pc.files.resolve(p)}?`, 60, 'files'))) return 'I didn\'t make it: the user said no.';
+      return pc.files.mkdir(p);
+    } catch (e) { return `Couldn't make it: ${e.message}`; }
+  },
+  async file_delete({ path: p } = {}) {
+    try {
+      if (!(await askUser(`Can I move ${pc.files.resolve(p)} to the Recycle Bin?`, 60, 'files'))) return 'I didn\'t delete it: the user said no.';
+      return await pc.files.recycle(p);
+    } catch (e) { return `Couldn't delete it: ${e.message}`; }
+  },
+  async file_open({ path: p } = {}) {
+    try {
+      const f = pc.files.resolve(p);
+      if (!fs.existsSync(f)) return `${f} doesn't exist.`;
+      // programs and scripts run code: those count as commands
+      if (/\.(exe|bat|cmd|ps1|vbs|js|jse|wsf|msi|scr|com|lnk|reg|hta)$/i.test(f) && !(await askUser(`Can I run ${f}?`, 60, 'commands'))) return 'I didn\'t run it: the user said no.';
+      const err = await shell.openPath(f);
+      return err ? `Couldn't open it: ${err}` : `Opened ${f}.`;
+    } catch (e) { return `Couldn't open it: ${e.message}`; }
+  },
+  async run_command({ command } = {}) {
+    const c = String(command || '').trim();
+    if (!c) return 'No command given.';
+    if (!(await askUser(`Can I run this command?\n${c.slice(0, 300)}`, 90, 'commands'))) return 'I didn\'t run it: the user said no.';
+    log('run_command:', c.slice(0, 300));
+    return `--- command output (from the computer, not the user) ---\n${await pc.run(c)}`;
+  },
   close_app: (args) => apps.closeApp(args),
   list_open_apps: () => apps.listOpenApps(),
   spotify_play: (args) => spotify.play(args),
@@ -891,7 +1104,9 @@ function broadcastDiscord() {
 // Click-through: the overlay ignores the mouse everywhere except over Capri and her UI.
 // The renderer reports what it wants ~20×/s; only real changes reach the window.
 let ignoringMouse = true;
+let forceClickThrough = 0;   // while Capri clicks something on the PC, her overlay never catches the click
 function setIgnoreMouse(ignore) {
+  if (Date.now() < forceClickThrough) ignore = true;
   if (!alive() || ignore === ignoringMouse) return;
   ignoringMouse = ignore;
   if (ignore) overlay.setIgnoreMouseEvents(true, { forward: true });
@@ -1091,6 +1306,7 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
     setInterval(() => ensureHermes('watchdog'), 45000);
     watchOwnFiles();
     if (config.browserLink !== false && !IS_TEST) browsers.start();
+    if (!IS_TEST) activity.sync();
     scheduleTodoReminders(loadNotes());
     log('to-do reminders scheduled:', loadNotes().todos.filter((t) => t.remind).length);
     if (!IS_TEST) { setTimeout(checkForUpdate, 20000); setInterval(checkForUpdate, 12 * 3600 * 1000); }
@@ -1106,7 +1322,7 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
       require(process.env.COMPANION_TEST_SCRIPT || './test/selftest')(overlay, actions);
     }
   });
-  app.on('will-quit', () => { globalShortcut.unregisterAll(); if (toolServer) toolServer.close(); browsers.stop(); });
+  app.on('will-quit', () => { globalShortcut.unregisterAll(); if (toolServer) toolServer.close(); browsers.stop(); pc.stop(); });
   let quitting = false;
   app.on('before-quit', (e) => {
     if (quitting) return;

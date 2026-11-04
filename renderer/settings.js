@@ -35,6 +35,10 @@ function read() {
     if (el.name === 'scale' && !scaleTouched) continue;
     if (el.type === 'checkbox') out[el.name] = el.checked;
     else if (el.type === 'range') out[el.name] = Number(el.value);
+    else if (el.type === 'number') {          // kept inside its min..max (an empty or silly value goes back to the last one)
+      const n = Math.round(Number(el.value));
+      if (Number.isFinite(n) && el.value !== '') out[el.name] = Math.min(Number(el.max || n), Math.max(Number(el.min || n), n));
+    }
     else out[el.name] = el.value.trim();
   }
   return out;
@@ -243,3 +247,19 @@ $('extOpenFx').addEventListener('click', () => api.openExtensionFolder('firefox'
 if (api.onBrowserState) api.onBrowserState(browserShow);
 (async () => { try { browserShow(await api.browserStatus()); } catch { /* old Capri */ } })();
 setInterval(async () => { try { browserShow(await api.browserStatus()); } catch { /* closing */ } }, 3000);
+
+// ---------- permissions (what she may do without asking)
+const permBoxes = [...document.querySelectorAll('[data-perm]')];
+function permShow(p) { for (const b of permBoxes) b.checked = !!(p && p[b.dataset.perm]); }
+async function permSave() {
+  const p = {};
+  for (const b of permBoxes) p[b.dataset.perm] = b.checked;
+  permShow(await api.setPermissions(p));
+  $('permSaved').className = 'result ok'; $('permSaved').textContent = 'Saved ✓';
+  setTimeout(() => { $('permSaved').textContent = ''; }, 2000);
+}
+for (const b of permBoxes) b.addEventListener('change', permSave);
+$('permAll').addEventListener('click', () => { for (const b of permBoxes) b.checked = b.dataset.perm !== 'commands' || b.checked; permSave(); });
+$('permNone').addEventListener('click', () => { for (const b of permBoxes) b.checked = false; permSave(); });
+if (api.onPermissions) api.onPermissions(permShow);
+(async () => { try { permShow(await api.getPermissions()); } catch { /* old Capri */ } })();

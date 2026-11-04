@@ -71,3 +71,5 @@ pre.code { background: var(--field); border: 1px solid var(--line); padding: 10p
 
 .status-list.bad { color: var(--bad, #ff6b8a); }
 .sub { display: block; margin: 12px 0 0; font-size: 13px; color: var(--ink); }
+h3.sub { margin: 14px 0 4px; font-size: 13px; }
+.warn { color: var(--bad); font-weight: 600; }
