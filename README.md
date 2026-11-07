@@ -56,7 +56,7 @@ Capri is an agent: the AI decides when to use these tools, so just ask in normal
 Anything that changes something (clicks, typing, files, commands, risky browser actions) asks you first with a **Yes, do it / No / Always allow** bubble. She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
 
 ### Privacy
-Your keys, tokens, settings, chat memory, notes, to-dos, AI usage counts and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `usage.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version, and, with PC alerts on, a check of Windows' own internet-test address once a minute). The Browser link extension only talks to Capri on your own PC. If you turn on [Make her more alive](#make-her-more-alive-she-notices-what-youre-doing) with "Let her AI write what she says", the name and title of the app in front (like a song or movie name) goes to your AI service so it can write her line. Never share your `config.json` or post your keys in issues.
+Your keys, tokens, settings, chat memory, notes, to-dos, AI usage counts and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `usage.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version, and, with PC alerts on, a check of Windows' own internet-test address once a minute). The Browser link extension only talks to Capri on your own PC. If you turn on [Make her more alive](#make-her-more-alive-she-notices-what-youre-doing) with "Let her AI write what she says", the name and title of the app in front (like a song or movie name) goes to your AI service so it can write her line. Asking her with `/capri` in Capri Terminal sends the last lines on that terminal screen. Never share your `config.json` or post your keys in issues.
 
 ### Updating / uninstalling
 When a new version is out, Capri tells you once with a Windows notification, and her right-click menu shows **Update to vX…** (it opens the release page). How to update depends on how you installed her; your settings, notes and keys stay in `%APPDATA%\Capri` either way.
@@ -79,7 +79,9 @@ Right-click Capri → **Settings…**. The presets at the top (Groq, Gemini, Cla
 | Poke | Click once. Poke her too much and she gets annoyed. |
 | Resize | Hover over her and scroll |
 | Notes & To-do list | Right-click her (or the tray icon) → **Notes & To-do list** |
-| Menu (Actions incl. High Forever and In Love With Myself, Call D, Notes, Settings) | Right-click her |
+| Menu (Actions incl. High Forever and In Love With Myself, Call D, Notes, Sit on my window, Settings) | Right-click her |
+| Instant commands | Type `/` in her typing box (or the TV command line): see **Commands** below |
+| Capri Terminal | `/powershell`, `/cmd`, or right-click her → Terminal |
 
 Things you can say:
 - "Open YouTube and search for lofi music"
@@ -189,6 +191,29 @@ Capri's party mode: her party song plays on loop and she goes wild on the beat, 
 - **Talk:** type in the TV's command line (your type hotkey focuses it) or use voice as usual. What she says goes into the log; questions with Yes/No buttons still pop up above the TV.
 - **Move it:** drag the green bar. Tap the screen and she taps back. **✕** or the menu turns TV mode off and she flies back out.
 - D waits outside while she's in the TV. Dances like High Forever step out of the TV first. TV mode is remembered across restarts.
+
+## Commands (instant, no AI)
+Type `/` in her typing box and a list of commands pops up: **↑ ↓** to pick, **Tab** to complete, **Enter** to run. They work straight away, use no AI tokens and need no internet (except the ones that open websites or Spotify). Anything without a `/` is a normal message to her. With the list closed, **↑ ↓** bring back what you typed before.
+
+| Command | Does |
+|---|---|
+| `/timer 10m tea` | a timer / reminder (`90s`, `25m`, `1h30m`) |
+| `/todo 7pm call mom`, `/todo buy milk` | add a to-do (a time turns its reminder on); `/todos` reads the list, `/done milk` ticks one off |
+| `/note text` | adds a line to the "Quick notes" note; `/notes` opens the panel |
+| `/play espresso`, `/pause`, `/next`, `/prev`, `/vol 30`, `/vol up`, `/mute` | music and volume |
+| `/open discord`, `/close chrome` | apps |
+| `/google …`, `/yt …`, `/web github.com` | the web |
+| `/party`, `/ride`, `/tv`, `/walker`, `/chill`, `/d`, `/zap`, `/teleport` | her actions (each one toggles) |
+| `/powershell`, `/cmd` | open Capri Terminal |
+| `/voice on`/`off`, `/clear`, `/settings`, `/help` | the rest |
+
+## Capri Terminal
+Type `/powershell` or `/cmd` in her typing box (or right-click her → **Terminal**) and your real PowerShell or Command Prompt opens in a window dressed like her TV: green tab bar, pink screen, her face in the corner. It's a normal terminal: type commands as usual, open more tabs with **+** (or Ctrl+Shift+T), Ctrl+C copies a selection, Ctrl+V or right-click pastes.
+
+At an empty prompt, type `/capri` (or `/capri why did my build fail?`) and her panel opens at the bottom. She reads what's on the screen and answers with the commands she'd run, one step at a time: **Enter** runs it, **Ctrl+E** puts it in the terminal for you to change, **Esc** skips it. When a plan is done, **Check result** asks her to read the output and say what's next. Nothing runs without you pressing Enter, unless you turn on **Settings → PC & browser → Run the commands she suggests in Capri Terminal without asking**; even then, risky commands always ask: deleting, moving or overwriting files (including `>` redirects), downloading or running scripts and programs, nested or encoded PowerShell, system, registry, scheduled-task, service and Windows Defender changes, and forced git pushes or resets. Leave this off if you open files or websites from people you don't trust in the terminal: she reads the screen, and text on it could try to talk her into a bad command. Her answers use your AI brain, so `/capri` costs tokens; the terminal itself doesn't. When you ask her, the last lines on that terminal screen go to your AI service with your question; nothing you type in the terminal is logged.
+
+## Sit on my window
+**Settings → Capri** or right-click her → **Sit on my window** (off by default; `/walker` toggles it). She flies up in her red electric form to the top edge of the window you're using on your main screen and lounges on it in her chill pose, floating just above the title bar (D stands next to her). Talk to her or poke her and she sits up, then lies back down after a while. Move the window and she drops to the taskbar, then floats back up once it stays put. Minimise or close it and she gets up and keeps floating where she is until there's a window to sit on again. Bring your mouse near her and she hops aside. Maximised and full-screen windows have no edge to sit on, so she waits on the taskbar. Drag her away and she goes back to the window a second after you let go.
 
 ## Care & PC alerts
 **Settings → Care & PC alerts** (on by default). She looks after you and your PC, says each alert once when she isn't busy, and looks the part. No AI tokens.
@@ -352,6 +377,9 @@ A GTX 1650 (4 GB) is enough for a small model:
 - `renderer/tv.js`: TV mode (the terminal TV, her live feed and its idle states)
 - `src/care.js`: Care & PC alerts (breaks, bedtime, CPU, disk, internet; low battery is in `renderer/app.js`)
 - `src/usage.js`: the AI usage meter (tokens per brain per day, shown in Settings)
+- `src/commands.js`, `renderer/commands.js`: the `/` commands (run in main; the suggestion list in the typing box)
+- `src/terminal.js`, `terminal-preload.js`, `renderer/terminal.*`: Capri Terminal (real shells on a pseudo-console, her /capri panel)
+- `src/walker.js`, `renderer/walker.js`: Sit on my window (where the front window is; her peeking, dropping and hopping)
 - `renderer/fx.js`: lightning, sparks, particles, rings, afterimages and emotes
 - `renderer/sfx.js`: synthesized sound effects, your custom sounds, and the digital voice chain
 

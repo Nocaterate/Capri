@@ -38,18 +38,48 @@ export function initTv(env) {
   let typing = null;
   function pushLine(cls, text, cps = 0) {
     lines.push({ cls, text, shown: cps ? 0 : text.length, cps });
-    while (lines.length > 14) lines.shift();
+    while (lines.length > 80) lines.shift();
     typing = cps ? lines[lines.length - 1] : typing;
     renderLog();
   }
+  // scrollable: it follows the newest line unless you've scrolled up to read older ones
+  let stick = true;
   function renderLog() {
+    const keep = el.log.scrollTop;
     el.log.innerHTML = '';
-    for (const l of lines.slice(-8)) {
+    const spacer = document.createElement('div'); spacer.className = 'tv-spacer';   // keeps short logs at the bottom
+    el.log.appendChild(spacer);
+    for (const l of lines) {
       const d = document.createElement('div');
       d.className = l.cls;
       d.textContent = l.text.slice(0, Math.floor(l.shown));
       el.log.appendChild(d);
     }
+    el.log.scrollTop = stick ? el.log.scrollHeight : keep;
+  }
+  el.log.addEventListener('scroll', () => { stick = el.log.scrollTop + el.log.clientHeight >= el.log.scrollHeight - 4; });
+  el.log.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+  // the log box is small (70 px) and grows to twice its height while she's saying something, growing upward so the
+  // feed stays where it is (downward when there's no room above), then shrinks back once she's done
+  const GROW = 70;
+  let tall = false, tallShift = 0, shrinkTimer = null;
+  function setTall(on2) {
+    if (on2 === tall || drag) return;
+    const top = parseFloat(el.tv.style.top) || 0;
+    el.tv.classList.add('tv-resize');
+    clearTimeout(setTall.t); setTall.t = setTimeout(() => el.tv.classList.remove('tv-resize'), 320);
+    if (on2) { tallShift = top - GROW >= 6 ? GROW : 0; el.tv.style.top = (top - tallShift) + 'px'; }
+    else { el.tv.style.top = (top + tallShift) + 'px'; tallShift = 0; }
+    tall = on2;
+    el.log.classList.toggle('tall', tall);
+  }
+  function shrinkLater() { if (el.log.matches(':hover')) shrinkTimer = setTimeout(shrinkLater, 1500); else setTall(false); }
+  function grow(text) {
+    clearTimeout(shrinkTimer);
+    setTall(true);
+    // stay open while it types, plus time to read it
+    const secs = 6 + String(text || '').length / 45 + String(text || '').length / 25;
+    shrinkTimer = setTimeout(shrinkLater, secs * 1000);
   }
   let lastHeard = '', thinkLine = null;
   // say() lands here while she's in the TV (anything without buttons)
@@ -65,6 +95,7 @@ export function initTv(env) {
     if (label && /DISCORD/.test(label)) pushLine('sys', '[discord]');
     pushLine('who', `${(env.name() || 'CAPRI').toUpperCase()} >`);
     pushLine('say', text, cps || 0);
+    grow(text);
   }
 
   // ---------------------------------------------------------------- open / close
@@ -77,7 +108,7 @@ export function initTv(env) {
   }
   function place(x, y) {
     const W = window.innerWidth, H = window.innerHeight;
-    const w = el.tv.offsetWidth || 400, h = el.tv.offsetHeight || 470;
+    const w = el.tv.offsetWidth || 400, h = el.tv.offsetHeight || 400;
     const px = clamp(x, 6, W - w - 6), py = clamp(y, 6, H - h - 6);
     el.tv.style.left = px + 'px'; el.tv.style.top = py + 'px';
     // her "position" follows the TV, so bubbles, notes and reminders appear next to it
@@ -133,6 +164,8 @@ export function initTv(env) {
   async function exit({ instant = false } = {}) {
     if (!on || busy) return;
     busy = true;
+    clearTimeout(shrinkTimer);
+    if (tall) { el.tv.style.top = ((parseFloat(el.tv.style.top) || 0) + tallShift) + 'px'; tall = false; tallShift = 0; el.log.classList.remove('tall'); }
     try {
       el.input.blur();
       const r = el.tv.getBoundingClientRect();
@@ -197,7 +230,7 @@ export function initTv(env) {
     if (!drag) return;
     drag = null; el.tv.classList.remove('dragging');
     const r = el.tv.getBoundingClientRect();
-    api.setConfig({ tvPos: { x: r.left / window.innerWidth, y: r.top / window.innerHeight } });
+    api.setConfig({ tvPos: { x: r.left / window.innerWidth, y: (r.top + tallShift) / window.innerHeight } });   // saved as the small box
   };
   el.bar.addEventListener('pointerup', endDrag);
   el.bar.addEventListener('pointercancel', endDrag);

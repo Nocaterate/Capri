@@ -9,6 +9,8 @@ import { initNotes } from './notes.js';
 import { initParty } from './party.js';
 import { initRide } from './ride.js';
 import { initTv } from './tv.js';
+import { attachCommands, isCommand, remember } from './commands.js';
+import { initWalker } from './walker.js';
 
 const api = window.companion;
 const $ = (id) => document.getElementById(id);
@@ -201,8 +203,11 @@ function tween(obj, to, dur, ease = (t) => t) {
     tweens.push({ obj, from, to, dur, t: 0, ease, resolve });
   });
 }
+// stop every tween on obj where it is now (its awaiting code carries on, so it must check whether it still owns obj)
+function cancelTweens(obj) { for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].obj === obj) { tweens[i].resolve(); tweens.splice(i, 1); } }
 const easeOut = (t) => 1 - (1 - t) ** 3;
 const easeIn = (t) => t * t * t;
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2);
 
 // ------------------------------------------------------------------ expressions
 const EMOTES = { happy: 'note', angry: 'anger', surprised: '!', sad: null, relaxed: null, neutral: null };
@@ -458,7 +463,7 @@ function duoAction(name) {
 }
 st.duo = duo;
 st.duoLift = 0;
-const dGround = () => (duo.py != null ? duo.py : H - st.pos.y - (duo.air ? Math.sin(st.t * 1.7) * 1.5 * S : 0));   // High Forever: he floats on his own
+const dGround = () => (duo.py != null ? duo.py : H - st.pos.y - (duo.peekLift || 0) * S - (duo.air ? Math.sin(st.t * 1.7) * 1.5 * S : 0));   // High Forever: he floats on his own
 const DS = () => (st.party && st.party.kind !== 'ride' ? st.party.S0 : S);                  // and keeps his size while she grows and shrinks
 function dScreen(px, py) { const s = DS(); return { x: duo.x + (px - DAX) * s, y: dGround() + (py - DAY) * s }; }
 const duoShown = () => duo.shown && st.visible;
@@ -503,6 +508,7 @@ function pokeD() {
   speak(pick(D_POKE_LINES), 'happy', { quick: true });
 }
 function overD(x, y) {
+  if (st.peek && y > st.peek.clipY) return false;
   if (!duoShown() || duo.ride || duo.tp || duo.tv || duo.arrive > 0.45 || duo.leave > 0) return false;
   const s = DS(), sx = Math.floor((x - duo.x) / s + DAX), sy = Math.floor((y - dGround()) / s + DAY);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dAlpha(duo.frame, sx + dx, sy + dy) > 120) return true;
@@ -531,7 +537,7 @@ function updateDuo(dt, now) {
   if (duo.nextBlink <= 0 && duo.blinkT < 0) { duo.blinkT = 0; duo.nextBlink = rand(2.5, 6); }
   if (duo.blinkT >= 0) { duo.blinkT += dt; if (duo.blinkT > 0.14) duo.blinkT = -1; }
 
-  const moving = (st.mode === 'walking' && st.walk) || (st.mode === 'dragging' && st.drag && st.drag.moved);
+  const moving = (st.mode === 'walking' && st.walk) || (st.mode === 'dragging' && st.drag && st.drag.moved) || (st.walkerBusy && st.walkerRed);
   // moving: Capri becomes pink electricity coiling around D, and he travels with her
   const coilWas = duo.coil > 0.5;
   const forced = now < duo.coilUntil && st.mode === 'idle';
@@ -561,7 +567,8 @@ function updateDuo(dt, now) {
   }
 
   // where Capri floats relative to him
-  const calm = ['idle', 'listening', 'thinking', 'speaking'].includes(st.mode) && !st.drag && !st.walk && duo.coil < 0.5 && !forced && duo.leave <= 0;
+  const calm = ['idle', 'listening', 'thinking', 'speaking'].includes(st.mode) && !st.drag && !st.walk && !st.walkerBusy && duo.coil < 0.5 && !forced && duo.leave <= 0;
+  duo.peekLift = lerp(duo.peekLift || 0, st.ledge ? HOVER - 2 : st.peek ? 20 : 0, Math.min(1, dt * 5));   // on a window (renderer/walker.js): he stands on its edge
   let tdx = duo.cdx, tlift = 0, behind = duo.behind;
   if (calm) {
     if (duo.pose !== 'orbit' && now > duo.poseUntil) { duo.pose = 'orbit'; duo.nextPose = rand(22, 40); }
@@ -573,8 +580,10 @@ function updateDuo(dt, now) {
         if (duo.pose === 'perch') { duo.emoteUntil = now + 1400; }
       }
     }
-    const mode = st.mode === 'speaking' || st.mode === 'thinking' ? 'loom' : st.chill ? 'chill' : duo.pose;
-    if (mode === 'loom') { tdx = 16; tlift = 30; behind = true; }
+    const mode = st.ledge ? 'ledge' : st.peek ? 'peek' : st.mode === 'speaking' || st.mode === 'thinking' ? 'loom' : st.chill ? 'chill' : duo.pose;
+    if (mode === 'ledge') { tdx = -st.ledge.dSide * 40; tlift = 0; behind = false; }
+    else if (mode === 'peek') { tdx = st.flip * 30; tlift = 0; behind = true; }
+    else if (mode === 'loom') { tdx = 16; tlift = 30; behind = true; }
     else if (mode === 'chill') { tdx = 4; tlift = 46; behind = false; }
     else if (mode === 'b2b') { tdx = 17; tlift = 4; behind = true; }
     else if (mode === 'perch') { tdx = 0; tlift = 50; behind = false; }
@@ -586,11 +595,12 @@ function updateDuo(dt, now) {
       behind = s > 0.2;
     }
     duo.mode = mode;
-    duo.cdx = lerp(duo.cdx, tdx, Math.min(1, dt * 2.5));
+    duo.cdx = lerp(duo.cdx, tdx, Math.min(1, dt * (mode === 'peek' || mode === 'ledge' ? 7 : 2.5)));
     duo.clift = lerp(duo.clift, tlift, Math.min(1, dt * 2.5));
     // only flip draw order where they don't overlap much
     if (behind !== duo.behind && (Math.abs(duo.cdx) > 14 || duo.clift > 22 || mode !== 'orbit')) duo.behind = behind;
-    st.pos.x = lerp(st.pos.x, clamp(duo.x + duo.cdx * S, 10 * S, W - 10 * S), Math.min(1, dt * 6));
+    if (mode === 'ledge') duo.x = lerp(duo.x, st.pos.x - duo.cdx * S, Math.min(1, dt * 6));   // she keeps her spot on the window; he steps beside her
+    else st.pos.x = lerp(st.pos.x, clamp(duo.x + duo.cdx * S, 10 * S, W - 10 * S), Math.min(1, dt * 6));
     st.duoLift = duo.clift;
   } else {
     duo.mode = moving ? 'coil' : 'other';
@@ -607,7 +617,7 @@ function updateDuo(dt, now) {
   if (duo.mode === 'perch' || now < duo.pokeUntil) f = 'lookup';
   if ((duo.blinkT >= 0 || sleepy) && (f === 'normal' || f === 'spiked')) f = f === 'spiked' ? 'spiked_blink' : 'blink';
   // up in the air with her (above the taskbar): the floating pose, same face, with an electric aura
-  const air = st.pos.y > 4 * S && DUO.rects.float_normal;
+  const air = st.pos.y > 4 * S && !st.peek && !st.ledge && DUO.rects.float_normal;
   if (air && !duo.air) { const g = dScreen(DAX, DH - 2); fx.burst(g.x, g.y, 12, { speed: 200, up: 80, life: 0.35, gravity: 0 }); sfx.crackle(0.15, 30); }
   duo.air = !!air;
   if (air) f = 'float_' + f;
@@ -1007,7 +1017,7 @@ function update(dt) {
   // red electric form while she moves
   const dragging = st.mode === 'dragging' && st.drag;
   const coilOrder = st.duo && st.duo.shown && now < st.duo.coilUntil;
-  const wantRed = (st.mode === 'walking' && st.walk) || dragging || coilOrder || st.partyRed ? 1 : 0;
+  const wantRed = (st.mode === 'walking' && st.walk) || dragging || coilOrder || st.partyRed || st.walkerRed ? 1 : 0;
   if (wantRed && st.red < 0.05 && !st.redOn) {
     st.redOn = true;
     const c = toScreen(AX, CORE_Y);
@@ -1207,6 +1217,7 @@ function update(dt) {
   if (st.mode !== 'dragging' && !st.party) st.rot = lerp(st.rot, 0, 0.2);
   if (st.party) (st.party.kind === 'ride' ? ride.tick(dt) : party.tick(dt));
   tv.tick(dt);
+  walker.tick(dt);
 
   fx.update(dt);
 }
@@ -1427,13 +1438,19 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   ctx.imageSmoothingEnabled = false;
 
-  fx.drawBehind(ctx);
+  // sitting on a window (renderer/walker.js): her sparks stay above its edge too
+  const clipPeek = () => { if (st.peek) { ctx.beginPath(); ctx.rect(0, 0, W, st.peek.clipY); ctx.clip(); } };
+  ctx.save(); clipPeek(); fx.drawBehind(ctx); ctx.restore();
   ride.drawBack(ctx);
 
-  if (st.visible && !st.orb && !st.hideSprite && st.levitate > 0.05 && !duoCoil()) drawHoverField();
+  // sitting on a window (renderer/walker.js): everything below its top edge is hidden, as if she's behind it
+  ctx.save();
+  clipPeek();
+  if (st.visible && !st.orb && !st.hideSprite && st.levitate > 0.05 && !duoCoil() && !st.peek) drawHoverField();
 
   if (duoShown() && duo.behind) { drawCapri(); drawD(); }
   else { drawD(); drawCapri(); }
+  ctx.restore();
 
   if (st.orb) drawOrb();
 
@@ -1449,7 +1466,7 @@ function draw() {
 
   ride.drawFront(ctx);
   tv.drawFront(ctx);
-  fx.drawFront(ctx, W, H, st.visible ? headScreen() : null);
+  ctx.save(); clipPeek(); fx.drawFront(ctx, W, H, st.visible ? headScreen() : null); ctx.restore();
   positionUi();
 }
 
@@ -1551,6 +1568,7 @@ function refreshInteractive(x, y) {
   setInteractive(!!st.drag || tv.dragging() || !typebox.hidden || overCharacter(x, y) || overD(x, y) || overUi(x, y));
 }
 function overCharacter(x, y) {
+  if (st.peek && y > st.peek.clipY) return false;   // behind the window she sits on
   if (st.orb) return Math.hypot(x - st.orb.x, y - st.orb.y) < S * 15;
   if (st.chill && st.visible) {
     const fy = H - st.pos.y - lift();
@@ -1702,6 +1720,7 @@ function openTypebox() {
   sfx.blip(true);
 }
 function closeTypebox() {
+  typeCmds.hide();
   typebox.hidden = true;
   typeinput.value = '';
   typeinput.blur();
@@ -1711,8 +1730,21 @@ typebox.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = typeinput.value.trim();
   closeTypebox();
-  if (text) converse(text, false);
+  if (text) runTyped(text);
 });
+const typeCmds = attachCommands(typeinput, typebox);
+// typed text: "/..." is a command protocol (instant, no AI, src/commands.js), anything else a chat message
+async function runTyped(text) {
+  remember(text);
+  if (!isCommand(text)) { converse(text, false); return; }
+  let r;
+  try { r = await api.runCommand(text); } catch (e) { r = { ok: false, text: String((e && e.message) || e), emotion: 'sad' }; }
+  await ensureVisible();
+  sfx.blip(!!(r && r.ok));
+  setEmotion((r && r.emotion) || 'neutral', 3, false);
+  if (r && r.ok && st.mode === 'idle' && !st.action && !st.party && !tv.on()) fx.showEmote('!', 0.8);
+  say(String((r && r.text) || 'Hmm, nothing happened.').slice(0, 600), { label: 'PROTOCOL //', seconds: r && r.help ? 14 : 4.5, cps: 140 });
+}
 typeinput.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTypebox(); });
 
 // ------------------------------------------------------------------ voice in
@@ -1998,7 +2030,7 @@ const tv = initTv({
   name: () => cfg.characterName,
   ensureVisible, endChill, hideBubble, setEmotion,
   closeTypebox: () => { if (!typebox.hidden) closeTypebox(); },
-  converse: (text) => converse(text, false),
+  converse: (text) => runTyped(text),
   capriPixels: () => { if (!st.visible) return []; compose(); return framePixels(1).map((p) => ({ ...p, s: S })); },
   dPixels: () => dFramePixels(true),
   bodyFrame: () => bodyFrame(),
@@ -2018,6 +2050,21 @@ const tv = initTv({
     const c = toScreen(AX, CORE_Y);
     fx.ring(c.x, c.y, { r0: S * 2, r1: S * 30, life: 0.4 });
     setEmotion('happy', 2.5, false);
+  },
+});
+
+attachCommands($('tv-input'), $('tv-cmd'));
+
+const walker = initWalker({
+  api, st, fx, sfx, tween, cancelTweens, easeIn, easeOut, easeInOut, sleep, squash, HOVER, startChill, endChill,
+  S: () => S, dims: () => ({ W, H }), cfg: () => cfg,
+  typeboxClosed: () => typebox.hidden,
+  landed: () => {
+    const g = ground();
+    squash(1.15, 0.85);
+    fx.ring(g.x, g.y - S * 3, { r0: S * 3, r1: S * 22, life: 0.4, color: '#FF1A3C' });
+    fx.burst(g.x, g.y - S * 2, 12, { speed: 220, life: 0.35, gravity: 0, color: '#FF1A3C' });
+    sfx.zap(0.5);
   },
 });
 
@@ -2174,7 +2221,7 @@ function scheduleIdle() {
 }
 let lastLineAt = performance.now();
 function idleTick() {
-  if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill || st.notesOpen || st.party || st.tv) return;
+  if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill || st.notesOpen || st.party || st.tv || st.peek || st.walkerBusy) return;
   const now = performance.now();
   const r = Math.random();
   if (activityReact(now)) return;
@@ -2293,7 +2340,7 @@ async function greet() {
 
 // ------------------------------------------------------------------ boot
 requestAnimationFrame(loop);
-window.__test = { scaleNow: () => S, careQueue, tryCare, party, ride, tv, notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
+window.__test = { scaleNow: () => S, walker, runTyped, careQueue, tryCare, party, ride, tv, notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
 window.__ready = true;
 await sleep(500);
 await teleportIn(st.pos.x, { dramatic: true });

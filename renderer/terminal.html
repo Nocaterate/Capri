@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;" />
+  <title>Capri Terminal</title>
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css" />
+  <link rel="stylesheet" href="terminal.css" />
+</head>
+<body>
+  <div id="frame">
+    <header id="bar">
+      <span id="brand">CAPRI.SH</span>
+      <div id="tabs-wrap">
+        <button class="scroll-btn" id="tabs-left" type="button" title="Scroll tabs" hidden>‹</button>
+        <div id="tabs"></div>
+        <button class="scroll-btn" id="tabs-right" type="button" title="Scroll tabs" hidden>›</button>
+      </div>
+      <div id="add-wrap">
+        <button id="add" type="button" title="New tab">+</button>
+        <div id="add-menu" hidden>
+          <button type="button" data-shell="powershell">PowerShell</button>
+          <button type="button" data-shell="cmd">CMD</button>
+        </div>
+      </div>
+      <button id="ask-btn" type="button" title="Ask Capri (or type /capri)">⚡ CAPRI</button>
+      <canvas id="face" width="40" height="40" title="Capri"></canvas>
+      <span id="link">● LINKED</span>
+      <button class="win" id="min" type="button" title="Minimise">–</button>
+      <button class="win" id="max" type="button" title="Maximise">□</button>
+      <button class="win close" id="close" type="button" title="Close">×</button>
+    </header>
+    <main id="screen">
+      <div id="terms"></div>
+      <section id="capri" hidden>
+        <canvas id="feed" width="96" height="96"></canvas>
+        <div id="convo">
+          <div id="log"></div>
+          <div id="steps"></div>
+          <form id="ask-form" autocomplete="off">
+            <span class="pr">capri&gt;</span>
+            <input id="ask" spellcheck="false" placeholder="ask Capri about this terminal…" />
+            <span class="keys"><b>Enter</b> ask · <b>Esc</b> close</span>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+  <img id="sheet" src="../assets/capri/sheet.png" alt="" hidden />
+  <script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script type="module" src="terminal.js"></script>
+</body>
+</html>

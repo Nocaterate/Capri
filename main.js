@@ -18,6 +18,9 @@ const browserLink = require('./src/browser');
 const pcHands = require('./src/pc');
 const { createActivity } = require('./src/activity');
 const { createCare } = require('./src/care');
+const commands = require('./src/commands');
+const { createWalker } = require('./src/walker');
+const { createTerminal } = require('./src/terminal');
 const { createUsage } = require('./src/usage');
 
 const IS_TEST = process.env.COMPANION_TEST === '1';
@@ -87,6 +90,7 @@ const DEFAULT_CONFIG = {
   usageLimit: 50000,
   activityAware: false,
   activityMinutes: 18, // at most one remark every this many minutes (1-60)
+  windowWalker: false, // she peeks over the top edge of the window you're using (renderer/walker.js)
   activityAi: true, // her AI writes the line (it gets the app and title); off = built-in lines only
   hotkeyTalk: 'Control+Alt+Space',
   hotkeyType: 'Control+Alt+T',
@@ -119,7 +123,8 @@ const DEFAULT_CONFIG = {
   browserLink: true, // listen for the extension on 127.0.0.1:43824
   browserLinks: [], // extension IDs you allowed once
   // what Capri may do without asking first (Settings → Permissions, or "Always allow" on her question)
-  autoApprove: { apps: false, files: false, browser: false, commands: false },
+  autoApprove: { apps: false, files: false, browser: false, commands: false, terminal: false },
+  termBounds: null, // Capri Terminal window size/position (src/terminal.js)
   updateNotified: '', // newest version she already told the user about
 };
 const SECRET_KEYS = ['spotifyRefreshToken', 'spotifyAccessToken', 'spotifyExpires', 'hermesMcpToken', 'hermesApiKey', 'hermesPrevBrain', 'hermesBrain', 'discordAvatarSet', 'discordOwnerLocks', 'browserLinks', 'autoApprove'];
@@ -267,6 +272,12 @@ function menuTemplate() {
     partyOn && partyKind === 'ride'
       ? { label: 'Uncall D (not mid-ride)', enabled: false }
       : { label: config.dOut ? 'Uncall D' : 'Call D', click: () => setConfig({ dOut: !config.dOut }) },
+    { label: 'Terminal', submenu: [
+      { label: 'PowerShell', click: () => terminal.open('powershell') },
+      { label: 'CMD', click: () => terminal.open('cmd') },
+    ] },
+    { label: 'Sit on my window', type: 'checkbox', checked: !!config.windowWalker, enabled: process.platform === 'win32',
+      click: () => { toggleHidden(false); setConfig({ windowWalker: !config.windowWalker }); } },
     { label: notesOpen ? 'Close notes & to-do' : 'Notes & To-do list', click: () => { toggleHidden(false); send('notes-toggle'); } },
     { label: 'Open activity log', click: () => { if (!fs.existsSync(LOG_PATH)) log('log started'); shell.openPath(LOG_PATH); } },
     { label: 'Clear chat memory', click: () => { history = []; saveJSON(HISTORY_PATH, history); send('toast', 'Chat memory wiped. Fresh start!'); } },
@@ -303,6 +314,7 @@ function setConfig(patch) {
   if (['hotkeyTalk', 'hotkeyType', 'hotkeyHide'].some((k) => k in patch)) registerHotkeys();
   if ('hermesBridge' in patch || 'hermesMcpPort' in patch) syncToolServer();
   if ('activityAware' in patch) activity.sync();
+  if ('windowWalker' in patch) walker.sync();
   if (discordChanged) restartDiscord();
   if ('dOut' in patch) { toggleHidden(false); send('duo', !!config.dOut); }
   if (tray) buildTray();
@@ -352,7 +364,7 @@ const confirmWaits = new Map();
 let confirmSeq = 0;
 // category: 'apps' (clicking/typing in programs), 'files' (changing files), 'browser' (risky clicks/submits),
 // 'commands' (PowerShell). Allowed categories (Settings → Permissions, or "Always allow" on the question) skip it.
-const CATEGORY_LABEL = { apps: 'clicking and typing in apps', files: 'changing files', browser: 'browser sends and submits', commands: 'running commands' };
+const CATEGORY_LABEL = { apps: 'clicking and typing in apps', files: 'changing files', browser: 'browser sends and submits', commands: 'running commands', terminal: 'running commands in Capri Terminal' };
 function askUser(text, seconds = 60, category = null) {
   if (category && config.autoApprove && config.autoApprove[category]) { log('auto-allowed (' + category + '):', text); return Promise.resolve(true); }
   return new Promise((resolve) => {
@@ -394,6 +406,18 @@ const pc = pcHands.createPc({ log: (...a) => log(...a), userDir: USER_DIR });
 // what it is and when a remark fits. The line goes to the overlay; once she has said it, it joins her chat
 // memory (with a note of what she noticed) so she understands your answer.
 let activityPending = null;
+// Capri Terminal: your PowerShell / CMD in her style, with /capri (src/terminal.js + renderer/terminal.html)
+const terminal = createTerminal({
+  BrowserWindow, ipcMain, getConfig: () => config, setConfig, log: (...a) => log(...a), brain,
+  rootDir: __dirname, iconPath: path.join(ASSET_DIR, 'icon256.png'),
+});
+
+// "Sit on my window": where the window in front is, for the overlay (src/walker.js + renderer/walker.js)
+const walker = createWalker({
+  pc, getConfig: () => config, log: (...a) => log(...a), send,
+  getDisplay: () => screen.getPrimaryDisplay(),
+  isVisible: () => !hidden && alive(),
+});
 const activity = createActivity({
   pc, log: (...a) => log(...a), getConfig: () => config,
   isBusy: () => hidden || partyOn || !alive(),
@@ -1221,6 +1245,24 @@ ipcMain.handle('open-sounds-folder', async () => {
 ipcMain.handle('open-external', (_e, url) => { if (/^https:\/\//.test(url)) shell.openExternal(url); });
 ipcMain.handle('show-menu', () => { if (alive()) Menu.buildFromTemplate(menuTemplate()).popup({ window: overlay }); });
 ipcMain.handle('transcribe', async (_e, audioBuf, mime) => brain.transcribe(config, Buffer.from(audioBuf), mime));
+// "/" commands from her typing box or the TV command line: instant, no AI (src/commands.js)
+ipcMain.handle('commands-list', () => commands.COMMANDS);
+ipcMain.handle('run-command', async (_e, text) => {
+  try {
+    const r = await commands.runCommand(text, {
+      actions, getConfig: () => config, setConfig, send, openSettings: createSettings,
+      clearHistory: () => { history = []; saveJSON(HISTORY_PATH, history); },
+      openTerminal: (shell) => terminal.open(shell),
+      partyKind: () => (partyOn ? partyKind : ''),
+    });
+    log('command:', String(text).split(/\s+/)[0], '->', r.ok ? 'ok' : 'no');
+    return r;
+  } catch (e) {
+    log('command failed:', String(text).split(/\s+/)[0], e.message);
+    return { ok: false, text: `That didn't work: ${e.message}`, emotion: 'sad' };
+  }
+});
+
 ipcMain.handle('chat', async (_e, userText, extra) => {
   let res;
   try {
@@ -1352,6 +1394,7 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
     watchOwnFiles();
     if (config.browserLink !== false && !IS_TEST) browsers.start();
     if (!IS_TEST) activity.sync();
+    if (!IS_TEST) walker.sync();
     if (!IS_TEST) care.start();
     scheduleTodoReminders(loadNotes());
     log('to-do reminders scheduled:', loadNotes().todos.filter((t) => t.remind).length);

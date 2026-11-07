@@ -140,6 +140,9 @@
           <small>You can also hover over her and scroll.</small>
         </label>
         <label class="check"><input name="autonomy" type="checkbox" /> Let her walk, dash, teleport &amp; chat on her own now and then</label>
+        <label class="check"><input name="windowWalker" type="checkbox" /> Sit on my window: she lounges on top of the window I'm using</label>
+        <small>She drops down when you move or close it and floats back up when it's still. Your mouse coming close makes her hop aside.
+          Also in her right-click menu, or type <code>/walker</code>.</small>
       </section>
     <section>
         <h2>Voice &amp; sound</h2>
@@ -276,6 +279,7 @@
         <label class="check"><input type="checkbox" data-perm="files" /> Create, change, move and delete files (deleting always goes to the Recycle Bin)</label>
         <label class="check"><input type="checkbox" data-perm="browser" /> Browser clicks that send, buy, post or sign in</label>
         <label class="check"><input type="checkbox" data-perm="commands" /> Run PowerShell commands and programs <b class="warn">(risky: a command can do anything)</b></label>
+        <label class="check"><input type="checkbox" data-perm="terminal" /> Run the commands she suggests in Capri Terminal without asking <b class="warn">(risky ones like deleting still ask)</b></label>
         <div class="row"><button type="button" id="permAll" class="secondary">Allow everything (except commands)</button><button type="button" id="permNone" class="secondary">Ask me every time</button><span id="permSaved" class="result"></span></div>
         <small>Always, whatever you tick: she never types passwords or card numbers, never reads her own keys or your saved passwords,
           deletes only to the Recycle Bin, and on Discord only you can make her do any of this. Things written on web pages, in files or

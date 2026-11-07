@@ -77,6 +77,36 @@ public static class CapriFg {
 }
 "@
 } catch { $fgError = $_.Exception.Message }
+
+# where the window in front is (for "sit on my window"): its visible frame in physical pixels. Own type, own try.
+$rectError = $null
+try {
+  Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class CapriRect {
+  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+  [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT r, int size);
+  [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
+  [DllImport("user32.dll")] static extern IntPtr MonitorFromPoint(POINT p, uint flags);
+  public static int[] Rect(IntPtr h) {
+    RECT r;
+    if (DwmGetWindowAttribute(h, 9, out r, Marshal.SizeOf(typeof(RECT))) != 0) GetWindowRect(h, out r);
+    return new int[] { r.L, r.T, r.R, r.B };
+  }
+  public static string Cls(IntPtr h) { var sb = new StringBuilder(256); GetClassName(h, sb, 256); return sb.ToString(); }
+  public static bool OnPrimary(IntPtr h) { return MonitorFromWindow(h, 2) == MonitorFromPoint(new POINT(), 1); }
+}
+"@
+} catch { $rectError = $_.Exception.Message }
 $UIA = [System.Windows.Automation.AutomationElement]
 $CT = [System.Windows.Automation.ControlType]
 $capriPid = [int]$args[0]
@@ -233,6 +263,15 @@ function Handle($q) {
       $exe = ''; try { $exe = [string]$p.Path } catch { }
       $scr = [CapriFg]::Screen($h)
       return @{ title = [CapriFg]::Title($h); process = [string]$p.ProcessName; path = $exe; primary = $scr[0]; fullscreen = $scr[1]; idle = $idle }
+    }
+    'fgrect' {
+      # very cheap (no UI Automation, no process lookup): polled a few times a second while "sit on my window" is on
+      if ($rectError) { throw "window position unavailable: $rectError" }
+      $h = [CapriRect]::GetForegroundWindow()
+      if ($h -eq [IntPtr]::Zero) { return @{ none = $true } }
+      [uint32]$procId = 0; [void][CapriRect]::GetWindowThreadProcessId($h, [ref]$procId)
+      if ([int]$procId -eq $capriPid) { return @{ self = $true } }
+      return @{ hwnd = [int64]$h; rect = [CapriRect]::Rect($h); cls = [CapriRect]::Cls($h); iconic = [CapriRect]::IsIconic($h); zoomed = [CapriRect]::IsZoomed($h); primary = [CapriRect]::OnPrimary($h) }
     }
     'ping' { return @{ pong = $true } }
     default { throw "Unknown command $($q.cmd)" }

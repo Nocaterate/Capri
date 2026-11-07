@@ -263,8 +263,14 @@ body.test-bg { background: linear-gradient(#3a6fd0 0%, #8fb8ef 55%, #5d9a3a 56%,
 .tv[hidden] { display: none; }
 .tv-log, .tv-feed, .tv-cmd { border: 3px solid var(--c); background: rgba(4, 8, 12, 0.94);
   box-shadow: 0 0 10px color-mix(in srgb, var(--c) 45%, transparent), inset 0 0 14px color-mix(in srgb, var(--c) 12%, transparent); }
-.tv-log { --c: #ff2e78; background: rgba(18, 4, 12, 0.94); padding: 10px 14px; height: 140px; overflow: hidden; font-size: 13px; line-height: 1.45;
-  display: flex; flex-direction: column; justify-content: flex-end; }
+.tv-log { --c: #ff2e78; background: rgba(18, 4, 12, 0.94); padding: 10px 14px; height: 70px; overflow-y: auto; overflow-x: hidden; font-size: 13px; line-height: 1.45;
+  display: flex; flex-direction: column; transition: height 0.28s ease; scrollbar-width: thin; scrollbar-color: #ff2e78 transparent; }
+.tv-log .tv-spacer { flex: 1 0 0; }
+.tv-log::-webkit-scrollbar { width: 6px; }
+.tv-log::-webkit-scrollbar-thumb { background: #ff2e78; }
+.tv-log::-webkit-scrollbar-track { background: transparent; }
+.tv-log.tall { height: 140px; }
+.tv.tv-resize { transition: top 0.28s ease; }
 .tv-log .u { color: #ff70a2; word-break: break-word; }
 .tv-log .who { color: #2eff8c; margin-top: 6px; }
 .tv-log .say { color: #ffe0ec; white-space: pre-wrap; word-break: break-word; }
@@ -290,3 +296,16 @@ body.test-bg { background: linear-gradient(#3a6fd0 0%, #8fb8ef 55%, #5d9a3a 56%,
 @keyframes tv-on { 0% { transform: scale(0.6, 0.02); filter: brightness(4); } 60% { transform: scale(1, 1.05); filter: brightness(2); } 100% { transform: none; filter: none; } }
 .tv.off-anim .tv-screen canvas { animation: tv-off 330ms ease-in forwards; }
 @keyframes tv-off { 0% { transform: none; } 55% { transform: scale(1, 0.02); filter: brightness(4); } 100% { transform: scale(0, 0.02); filter: brightness(4); } }
+
+/* ---------- command protocols: suggestions while typing "/" (renderer/commands.js) ---------- */
+.cmd-suggest { position: fixed; z-index: 60; padding: 4px 0; background: var(--panel); border: 1px solid var(--edge);
+  box-shadow: 0 0 16px var(--edge-soft); font: 12px var(--font); color: var(--text);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px)); }
+.cmd-suggest[hidden] { display: none; }
+.cmd-row { display: flex; gap: 8px; align-items: baseline; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
+.cmd-row b { color: var(--cyan); font-weight: 600; }
+.cmd-row i { color: var(--muted); font-style: normal; overflow: hidden; text-overflow: ellipsis; }
+.cmd-row span { margin-left: auto; padding-left: 10px; color: var(--muted); font-size: 11px; }
+.cmd-row.on { background: rgba(255, 42, 109, 0.18); box-shadow: inset 3px 0 0 var(--edge); }
+.cmd-badge { flex: none; font: 700 10px var(--font); letter-spacing: .08em; color: var(--cyan); }
+.cmd-badge[hidden] { display: none; }
