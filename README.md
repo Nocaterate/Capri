@@ -51,11 +51,12 @@ Capri is an agent: the AI decides when to use these tools, so just ask in normal
 | Your browser: tabs, read pages, click, type, play/pause videos (needs the [Browser link](#browser-link-optional)) | "Open YouTube in Edge and play lofi", "What does this page say?", "Close the Twitter tab" |
 | High Forever party mode | "High Forever!", "Stop the party" |
 | In Love With Myself (road trip with D) | "In Love With Myself", "Road trip with D" |
+| TV mode (she lives in a little TV) | "Get in the TV", "Come out of the TV" |
 
 Anything that changes something (clicks, typing, files, commands, risky browser actions) asks you first with a **Yes, do it / No / Always allow** bubble. She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
 
 ### Privacy
-Your keys, tokens, settings, chat memory, notes, to-dos and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version). The Browser link extension only talks to Capri on your own PC. If you turn on [Make her more alive](#make-her-more-alive-she-notices-what-youre-doing) with "Let her AI write what she says", the name and title of the app in front (like a song or movie name) goes to your AI service so it can write her line. Never share your `config.json` or post your keys in issues.
+Your keys, tokens, settings, chat memory, notes, to-dos, AI usage counts and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `usage.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version, and, with PC alerts on, a check of Windows' own internet-test address once a minute). The Browser link extension only talks to Capri on your own PC. If you turn on [Make her more alive](#make-her-more-alive-she-notices-what-youre-doing) with "Let her AI write what she says", the name and title of the app in front (like a song or movie name) goes to your AI service so it can write her line. Never share your `config.json` or post your keys in issues.
 
 ### Updating / uninstalling
 When a new version is out, Capri tells you once with a Windows notification, and her right-click menu shows **Update to vX…** (it opens the release page). How to update depends on how you installed her; your settings, notes and keys stay in `%APPDATA%\Capri` either way.
@@ -182,6 +183,20 @@ Capri's party mode: her party song plays on loop and she goes wild on the beat, 
 - **D is required:** if he isn't out, she calls him first. He can't be uncalled until the ride ends.
 - **One size:** the ride is always the same size (it fits the screen width), whatever size Capri and D are. When it ends they fly back to their spots at their own size.
 - Voice only while it runs (no typing). It never starts on its own and loops until you stop it: the **STOP IN LOVE WITH MYSELF** box at the bottom right, **Esc**, the menu, or asking her.
+
+## TV mode
+**Actions → TV mode** (or ask her: "get in the TV"). Capri moves into a little terminal-style TV in her colours: a pink chat log on top, a green live feed of her (top half) in the middle, and a pink command line at the bottom. She doesn't roam while she's in it, but she still talks, listens, reacts and idles inside the screen: floating, blinking, glancing, chilling, getting sleepy, peekaboo, leaning into the camera and flipping channels.
+- **Talk:** type in the TV's command line (your type hotkey focuses it) or use voice as usual. What she says goes into the log; questions with Yes/No buttons still pop up above the TV.
+- **Move it:** drag the green bar. Tap the screen and she taps back. **✕** or the menu turns TV mode off and she flies back out.
+- D waits outside while she's in the TV. Dances like High Forever step out of the TV first. TV mode is remembered across restarts.
+
+## Care & PC alerts
+**Settings → Care & PC alerts** (on by default). She looks after you and your PC, says each alert once when she isn't busy, and looks the part. No AI tokens.
+- **You:** an eye break every 20 minutes of use, water every hour of use, bedtime reminders from the time you set until 5 AM (every 45 minutes while you're still on).
+- **Your PC:** low battery (20%), CPU busy over 90% for 2 minutes (she overheats), system disk over 90% full, the internet dropping and coming back.
+
+## AI usage meter
+**Settings → AI usage** shows tokens today, this month and over the last 7 days, per brain (Hermes, Groq, Gemini, ...). Type each provider's price per million tokens to see the cost. An optional daily limit switches her automatic remarks to built-in lines for the rest of the day (chatting keeps working). Hermes counts only the tokens it reports back.
 
 ## Her voice
 Out of the box she uses a free Microsoft Edge voice, no setup needed.
@@ -334,6 +349,9 @@ A GTX 1650 (4 GB) is enough for a small model:
 - `renderer/ride.js`: In Love With Myself (the car ride with D)
 - `src/pc.js`, `src/pc-helper.ps1`: computer control (Windows UI Automation, mouse/keyboard, files, commands)
 - `src/activity.js`: Make her more alive (what's in front on the main screen, and when to mention it)
+- `renderer/tv.js`: TV mode (the terminal TV, her live feed and its idle states)
+- `src/care.js`: Care & PC alerts (breaks, bedtime, CPU, disk, internet; low battery is in `renderer/app.js`)
+- `src/usage.js`: the AI usage meter (tokens per brain per day, shown in Settings)
 - `renderer/fx.js`: lightning, sparks, particles, rings, afterimages and emotes
 - `renderer/sfx.js`: synthesized sound effects, your custom sounds, and the digital voice chain
 

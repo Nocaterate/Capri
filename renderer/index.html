@@ -25,6 +25,19 @@
     <input id="typeinput" type="text" placeholder="type a message… (Enter to send, Esc to close)" maxlength="500" />
   </form>
 
+  <!-- TV mode: Capri inside a little terminal TV (renderer/tv.js) -->
+  <div id="tv" class="tv interactive" hidden>
+    <div class="tv-log" id="tv-log"></div>
+    <div class="tv-feed">
+      <div class="tv-bar" id="tv-bar" title="Drag to move the TV">
+        <span class="tv-tag" id="tv-tag">CAPRI.TV // IDLE</span>
+        <span class="tv-status">&#9679; ONLINE</span>
+        <button type="button" class="tv-x" id="tv-off" title="Turn TV mode off">&#10005;</button>
+      </div>
+      <div class="tv-screen" id="tv-screen"><canvas id="tv-cv" width="368" height="228"></canvas></div>
+    </div>
+    <form class="tv-cmd" id="tv-cmd" autocomplete="off"><span class="tv-pr">&gt;_</span><input id="tv-input" placeholder="Talk to Capri..." spellcheck="false" maxlength="2000"></form>
+  </div>
   <button type="button" id="party-stop" class="party-stop interactive" hidden title="Stop High Forever (Esc)">
     <span class="ps-icon"></span>
     <span class="ps-text"><b id="party-label">STOP HIGH FOREVER</b><small id="party-song">♪</small></span>

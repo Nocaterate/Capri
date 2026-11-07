@@ -3,7 +3,7 @@
 
 const EMOTIONS = ['happy', 'sad', 'angry', 'surprised', 'relaxed', 'neutral'];
 // actions whose result already says everything; she replies from it directly (no second AI call)
-const FAST_TOOLS = new Set(['spotify_play', 'spotify_control', 'spotify_queue', 'media_control', 'open_app', 'close_app', 'open_website', 'search_web', 'set_reminder', 'add_todo', 'remove_todo', 'add_note', 'high_forever', 'in_love_with_myself', 'browser_scroll', 'browser_media']);
+const FAST_TOOLS = new Set(['spotify_play', 'spotify_control', 'spotify_queue', 'media_control', 'open_app', 'close_app', 'open_website', 'search_web', 'set_reminder', 'add_todo', 'remove_todo', 'add_note', 'high_forever', 'in_love_with_myself', 'tv_mode', 'browser_scroll', 'browser_media']);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const TOOLS = [
@@ -317,6 +317,14 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'tv_mode',
+      description: 'Turn TV mode on or off. In TV mode Capri lives inside a small terminal-style TV on the desktop (chat log, live feed of her, command line) and does not roam; she still talks and listens. Only when the user asks (e.g. "TV mode", "get in the TV", "come out of the TV").',
+      parameters: { type: 'object', properties: { on: { type: 'boolean', description: 'false to leave the TV' } } },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'in_love_with_myself',
       description: 'Start (or stop) "In Love With Myself": Capri and D ride on the roof of a red car across the taskbar to its song, on loop until stopped. D comes along automatically. Only when the user asks for it (e.g. "In Love With Myself", "road trip with D", "stop the ride").',
       parameters: { type: 'object', properties: { on: { type: 'boolean', description: 'false to stop the ride' } } },
@@ -427,6 +435,10 @@ function base(url) {
   return String(url || '').replace(/\/+$/, '');
 }
 
+// the usage meter (src/usage.js) hears every reply's token count
+let usageHook = null;
+function setUsageHook(fn) { usageHook = fn; }
+
 async function api(url, key, body, isForm, extraHeaders, timeoutMs = 60000) {
   const headers = { ...(extraHeaders || {}) };
   if (key) headers.Authorization = `Bearer ${key}`;
@@ -445,6 +457,7 @@ async function api(url, key, body, isForm, extraHeaders, timeoutMs = 60000) {
   const text = await res.text();
   let json = null;
   try { json = JSON.parse(text); } catch { /* not json */ }
+  if (res.ok && json && json.usage && usageHook) { try { usageHook(url, body && body.model, json.usage); } catch { /* never break a reply */ } }
   if (!res.ok) {
     const msg = (json && json.error && (json.error.message || json.error)) || text.slice(0, 300);
     const err = new Error(`${res.status}: ${msg}`);
@@ -602,4 +615,4 @@ async function quickLine(cfg, instruction) {
   return parseEmotion(t);
 }
 
-module.exports = { transcribe, chat, quickLine, testConnection, parseEmotion, TOOLS };
+module.exports = { transcribe, chat, quickLine, testConnection, parseEmotion, setUsageHook, TOOLS };

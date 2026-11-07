@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('companion', {
   openMusicFolder: () => ipcRenderer.invoke('open-music-folder'),
   partyState: (on, kind) => ipcRenderer.send('party-state', on, kind),
   onActivitySay: on('activity-say'),
+  onCareSay: on('care-say'),
+  usageGet: () => ipcRenderer.invoke('usage-get'),
   onActivityMood: on('activity-mood'),
   activitySpoken: (text) => ipcRenderer.send('activity-spoken', text),
   onDiscordEvent: on('discord-event'),

@@ -1,7 +1,7 @@
 // Capri — desktop companion, main process.
 // Transparent always-on-top overlay + tray + hotkeys + AI/voice backend.
 const {
-  app, BrowserWindow, ipcMain, screen, globalShortcut, Tray, Menu, nativeImage, shell, session, Notification,
+  app, BrowserWindow, ipcMain, screen, globalShortcut, Tray, Menu, nativeImage, shell, session, Notification, powerMonitor, net,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -17,6 +17,8 @@ const discord = require('./src/discord');
 const browserLink = require('./src/browser');
 const pcHands = require('./src/pc');
 const { createActivity } = require('./src/activity');
+const { createCare } = require('./src/care');
+const { createUsage } = require('./src/usage');
 
 const IS_TEST = process.env.COMPANION_TEST === '1';
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -71,6 +73,18 @@ const DEFAULT_CONFIG = {
   posY: 0,
   autonomy: true,
   // "Make her more alive": she notices what's in front on your main screen and talks about it now and then
+  tvMode: false, // TV mode: she lives inside a little terminal TV (the overlay saves this and tvPos)
+  tvPos: null, // { x, y } as fractions of the screen
+  // Care & PC alerts (src/care.js): eye breaks, water, bedtime, CPU/disk/internet, low battery (overlay)
+  careEyes: true,
+  careWater: true,
+  careBedtime: true,
+  careBedtimeAt: '00:00',
+  carePc: true,
+  // Usage meter (src/usage.js): prices per brain in US$ per million tokens, optional daily token limit
+  usagePrices: {},
+  usageLimitOn: false,
+  usageLimit: 50000,
   activityAware: false,
   activityMinutes: 18, // at most one remark every this many minutes (1-60)
   activityAi: true, // her AI writes the line (it gets the app and title); off = built-in lines only
@@ -188,7 +202,7 @@ function createOverlay() {
 function createSettings() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
-    width: 580, height: 780, title: `${config.characterName} Settings`,
+    width: 800, height: 800, minWidth: 560, minHeight: 500, title: `${config.characterName} Settings`,
     autoHideMenuBar: true,
     backgroundColor: '#140A16',
     icon: path.join(ASSET_DIR, 'icon256.png'),
@@ -238,6 +252,9 @@ function menuTemplate() {
         // a duo action: D is called if he isn't out, and stays until the ride ends
         { label: partyOn && partyKind === 'ride' ? 'Stop In Love With Myself' : 'In Love With Myself ♪ (with D)', enabled: !(partyOn && partyKind === 'party'),
           click: () => { toggleHidden(false); send('action', partyOn ? 'in_love_stop' : 'in_love'); } },
+        // TV mode: she lives in a little terminal TV (renderer/tv.js); the overlay saves tvMode itself
+        { label: 'TV mode', type: 'checkbox', checked: !!config.tvMode, enabled: !partyOn,
+          click: () => { toggleHidden(false); send('action', 'tv_toggle'); } },
         { type: 'separator' },
         ...(config.dOut ? [
         ['Power up together', 'duo_charge'], ['Loom behind D', 'loom'], ['Back to back', 'b2b'], ['Perch on D', 'perch'],
@@ -381,6 +398,7 @@ const activity = createActivity({
   pc, log: (...a) => log(...a), getConfig: () => config,
   isBusy: () => hidden || partyOn || !alive(),
   makeLine: async ({ what, minutes }) => {
+    if (usage.overLimit()) return null;             // over today's token limit: her built-in lines instead
     const prev = config.hermesPrevBrain;
     const cfg = config.hermesBrain && prev && prev.apiKey ? { ...config, ...prev } : config;   // her quick brain, not a whole Hermes turn
     const r = await brain.quickLine(cfg, `(Not the user talking: this is your own sense of what they're doing on their PC.) `
@@ -393,6 +411,27 @@ const activity = createActivity({
   onSay: (line) => { activityPending = line; send('activity-say', { text: line.text, emotion: line.emotion, category: line.category }); },
   onMood: (m) => send('activity-mood', m),
 });
+// ---------- usage meter: every AI reply's token count, per brain per day ----------
+const usage = createUsage({
+  file: path.join(USER_DIR, 'usage.json'), getConfig: () => config, log: (...a) => log(...a),
+  onLimit: (n) => send('care-say', { kind: 'limit', emotion: 'surprised',
+    text: `We've used today's token limit (${Math.round(n / 1000)}k). I'll use my own lines for remarks until tomorrow; chatting still works.` }),
+});
+brain.setUsageHook((url, model, u) => usage.add(url, model, u));
+ipcMain.handle('usage-get', () => usage.summary());
+
+// ---------- care & PC alerts ----------
+const care = createCare({
+  getConfig: () => config, log: (...a) => log(...a),
+  getIdleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return 0; } },
+  isOnline: async () => {
+    if (net.isOnline && !net.isOnline()) return false;
+    try { const r = await net.fetch('https://www.msftconnecttest.com/connecttest.txt', { signal: AbortSignal.timeout(6000) }); return r.ok; } catch { return false; }
+  },
+  isBusy: () => hidden || partyOn || !alive(),
+  onSay: (l) => send('care-say', l),
+});
+
 ipcMain.on('activity-spoken', (_e, text) => {
   const l = activityPending;
   if (!l || l.text !== text) return;
@@ -836,6 +875,12 @@ const actions = {
     if (on !== false && partyOn && partyKind === 'ride') return "We're on the road with D right now. Stop the ride first.";
     send('action', on === false ? 'high_forever_stop' : 'high_forever');
     return on === false ? 'Party over. Phew!' : 'High Forever, let\'s go!';
+  },
+  tv_mode({ on = true } = {}) {
+    toggleHidden(false);
+    if (on !== false && partyOn) return 'Finish the current dance first, then I can hop into the TV.';
+    send('action', on === false ? 'tv_off' : 'tv_on');
+    return on === false ? 'Stepping out of the TV!' : 'Jumping into the TV~';
   },
   in_love_with_myself({ on = true } = {}) {
     toggleHidden(false);
@@ -1307,6 +1352,7 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
     watchOwnFiles();
     if (config.browserLink !== false && !IS_TEST) browsers.start();
     if (!IS_TEST) activity.sync();
+    if (!IS_TEST) care.start();
     scheduleTodoReminders(loadNotes());
     log('to-do reminders scheduled:', loadNotes().todos.filter((t) => t.remind).length);
     if (!IS_TEST) { setTimeout(checkForUpdate, 20000); setInterval(checkForUpdate, 12 * 3600 * 1000); }

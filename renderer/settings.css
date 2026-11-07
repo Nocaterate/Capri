@@ -32,7 +32,7 @@ input:not([type=checkbox]):not([type=range]), select, textarea {
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 input[type=range] { width: 100%; margin-top: 6px; accent-color: var(--accent); }
-input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
 textarea { resize: vertical; }
 small { display: block; color: var(--ink-soft); font-weight: 400; margin-top: 5px; line-height: 1.4; }
 a { color: var(--accent-hot); }
@@ -73,3 +73,49 @@ pre.code { background: var(--field); border: 1px solid var(--line); padding: 10p
 .sub { display: block; margin: 12px 0 0; font-size: 13px; color: var(--ink); }
 h3.sub { margin: 14px 0 4px; font-size: 13px; }
 .warn { color: var(--bad); font-weight: 600; }
+
+/* AI usage panel */
+.usage { margin: 6px 0 10px; }
+.usage .totals { display: flex; gap: 28px; margin-bottom: 10px; }
+.usage .big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.usage .sub { color: var(--ink-soft); font-size: 12px; }
+.usage .stack { display: flex; height: 12px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.06); margin: 4px 0; }
+.usage .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-soft); }
+.usage .legend i { display: inline-block; width: 9px; height: 9px; margin-right: 5px; vertical-align: middle; }
+.usage .days { display: flex; align-items: flex-end; gap: 8px; height: 70px; margin-top: 10px; }
+.usage .days div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; font-size: 10px; color: var(--ink-soft); }
+.usage .days b { display: block; width: 100%; background: #ff70a2; border-radius: 2px 2px 0 0; min-height: 1px; }
+.usage .days div.today b { background: #2eff8c; }
+.prices { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px 10px; align-items: center; margin-top: 10px; font-size: 12px; }
+.prices input { width: 100%; }
+
+/* ===================== categories ===================== */
+#cats svg, .cat-head svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; flex: none; }
+#cats button { display: flex; align-items: center; gap: 10px; background: none; color: var(--ink-soft); border: 1px solid transparent; font-weight: 600; }
+#cats button:hover { color: var(--ink); background: #2a1428; }
+#cats button.active { color: var(--accent-hot); background: #2E1426; border-color: var(--line); }
+#find { width: 100%; font: inherit; padding: 7px 10px; border: 1px solid var(--line); background: var(--field); color: var(--ink); }
+#find:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.cat-head { display: flex; gap: 12px; align-items: center; margin: 4px 0 4px; color: var(--accent-hot); }
+.cat-head svg { width: 26px; height: 26px; stroke-width: 1.2; }
+.cat-title { font-size: 17px; letter-spacing: 0.1em; margin: 0; color: var(--ink); }
+.cat-head p { margin: 2px 0 0; color: var(--ink-soft); font-size: 13px; }
+#nothing { color: var(--ink-soft); padding: 30px 0; text-align: center; }
+details.howto { border: 1px dashed var(--line); padding: 8px 12px; margin: 10px 0; }
+details.howto[open] summary { margin-bottom: 4px; }
+details.howto summary { color: var(--accent-hot); font-weight: 600; }
+.cat[hidden], section[hidden] { display: none; }
+
+/* sidebar of categories, one category at a time */
+.layout { display: grid; grid-template-columns: 196px 1fr; align-items: start; }
+#cats { position: sticky; top: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px 0 14px 24px; }
+#cats #find { margin-bottom: 8px; }
+#cats button { width: 100%; text-align: left; padding: 9px 12px; }
+#cats button.active { box-shadow: inset 3px 0 0 var(--accent); }
+form { padding: 6px 24px 90px 18px; }
+@media (max-width: 680px) {
+  .layout { grid-template-columns: 64px 1fr; }
+  #cats { padding-left: 12px; }
+  #cats #find, #cats button span { display: none; }
+  #cats button { justify-content: center; padding: 10px 0; }
+}

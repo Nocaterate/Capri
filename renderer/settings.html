@@ -15,321 +15,379 @@
     </div>
   </header>
 
+  <div class="layout">
+  <nav id="cats">
+    <input id="find" type="search" placeholder="Find a setting…" />
+    <button type="button" data-cat="ai"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3h4l3 3v4l-3 3H6L3 10V6z"/><path d="M8 5v6M5.5 8h5"/></svg><span>AI</span></button>
+    <button type="button" data-cat="her"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13c0-3 2-5 5-5s5 2 5 5"/><rect x="5" y="2.5" width="6" height="5"/></svg><span>Capri</span></button>
+    <button type="button" data-cat="alive"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.5S2.5 10 2.5 6.2A2.7 2.7 0 0 1 8 4.8a2.7 2.7 0 0 1 5.5 1.4C13.5 10 8 13.5 8 13.5z"/></svg><span>Alive &amp; care</span></button>
+    <button type="button" data-cat="pc"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="8"/><path d="M6 14h4M8 11v3"/></svg><span>PC &amp; browser</span></button>
+    <button type="button" data-cat="apps"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 12V4l7-1.5V10.5"/><circle cx="4.5" cy="12" r="1.6"/><circle cx="11.5" cy="10.5" r="1.6"/></svg><span>Spotify &amp; Discord</span></button>
+    <button type="button" data-cat="general"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="5" width="12" height="7"/><path d="M4.5 7.5h1M7.5 7.5h1M10.5 7.5h1M5 10h6"/></svg><span>General</span></button>
+  </nav>
   <form id="form" autocomplete="off">
+    <div class="cat" id="cat-ai" data-cat="ai">
+      <div class="cat-head"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3h4l3 3v4l-3 3H6L3 10V6z"/><path d="M8 5v6M5.5 8h5"/></svg><div><h2 class="cat-title">AI</h2><p>Her brain, ears, Hermes and how many tokens she uses.</p></div></div>
     <section>
-      <h2>AI brain</h2>
-      <div class="presets">
-        <button type="button" data-preset="groq" class="chip">Groq (free)</button>
-        <button type="button" data-preset="claude" class="chip">Claude</button>
-        <button type="button" data-preset="gemini" class="chip">Gemini (free)</button>
-        <button type="button" data-preset="openrouter" class="chip">OpenRouter (DeepSeek)</button>
-        <button type="button" data-preset="ollama" class="chip">Ollama (local)</button>
-        <button type="button" data-preset="openai" class="chip">OpenAI</button>
-      </div>
-      <label>API key
-        <input name="apiKey" type="password" placeholder="gsk_..." />
-        <small>Groq: sign up for free, then create a key at <a href="#" data-link="https://console.groq.com/keys">console.groq.com/keys</a>. Claude: create a key in the <a href="#" data-link="https://platform.claude.com/">Claude Console</a>. Gemini: get a free key in <a href="#" data-link="https://aistudio.google.com/apikey">Google AI Studio</a>. OpenRouter: create a key at <a href="#" data-link="https://openrouter.ai/settings/keys">openrouter.ai/settings/keys</a>. The key is only stored on this computer.</small>
-      </label>
-      <label>API address (OpenAI-compatible)
-        <input name="apiBaseUrl" type="url" />
-      </label>
-      <label>Chat model
-        <input name="chatModel" />
-      </label>
-      <div class="row">
-        <button type="button" id="test" class="secondary">Test connection</button>
-        <span id="testResult" class="result"></span>
-      </div>
-    </section>
-
-    <section>
-      <h2>Ears (speech-to-text)</h2>
-      <div class="grid2">
-        <label>Model
-          <input name="sttModel" />
+        <h2>AI brain</h2>
+        <div class="presets">
+          <button type="button" data-preset="groq" class="chip">Groq (free)</button>
+          <button type="button" data-preset="claude" class="chip">Claude</button>
+          <button type="button" data-preset="gemini" class="chip">Gemini (free)</button>
+          <button type="button" data-preset="openrouter" class="chip">OpenRouter (DeepSeek)</button>
+          <button type="button" data-preset="ollama" class="chip">Ollama (local)</button>
+          <button type="button" data-preset="openai" class="chip">OpenAI</button>
+        </div>
+        <label>API key
+          <input name="apiKey" type="password" placeholder="gsk_..." />
+          <small>Groq: sign up for free, then create a key at <a href="#" data-link="https://console.groq.com/keys">console.groq.com/keys</a>. Claude: create a key in the <a href="#" data-link="https://platform.claude.com/">Claude Console</a>. Gemini: get a free key in <a href="#" data-link="https://aistudio.google.com/apikey">Google AI Studio</a>. OpenRouter: create a key at <a href="#" data-link="https://openrouter.ai/settings/keys">openrouter.ai/settings/keys</a>. The key is only stored on this computer.</small>
         </label>
-        <label>Language
-          <select name="sttLanguage">
-            <option value="en">English</option>
-            <option value="id">Indonesian</option>
-            <option value="ja">Japanese</option>
-            <option value="">Detect automatically</option>
-          </select>
+        <label>API address (OpenAI-compatible)
+          <input name="apiBaseUrl" type="url" />
         </label>
-      </div>
-      <details>
-        <summary>Use a different service for speech-to-text</summary>
-        <label>STT API address (empty = same as above)
-          <input name="sttBaseUrl" type="url" placeholder="https://api.groq.com/openai/v1" />
-        </label>
-        <label>STT API key (empty = same as above)
-          <input name="sttApiKey" type="password" />
-        </label>
-        <small>Claude, Gemini and Ollama have no speech-to-text here. If her brain runs on either, put a Groq key here so voice chat still works.</small>
-      </details>
-    </section>
-
-    <section>
-      <h2>Character</h2>
-      <div class="grid2">
-        <label>Character name
-          <input name="characterName" maxlength="30" />
-        </label>
-        <label>Your name
-          <input name="userName" maxlength="30" placeholder="optional" />
-        </label>
-      </div>
-      <label>Personality &amp; speaking style
-        <textarea name="personality" rows="5"></textarea>
-      </label>
-      <label>Pixel size <output id="scaleOut"></output>
-        <input name="scale" type="range" min="2" max="14" step="1" />
-        <small>You can also hover over her and scroll.</small>
-      </label>
-      <label class="check"><input name="autonomy" type="checkbox" /> Let her walk, dash, teleport &amp; chat on her own now and then</label>
-    </section>
-
-    <section>
-      <h2>Make her more alive</h2>
-      <label class="check"><input name="activityAware" type="checkbox" /> Let her notice what I'm doing on my main screen</label>
-      <small>She looks only at the window in front on your main screen, every few seconds, and reacts now and then: watching a
-        movie or YouTube (<i>"How's the movie, is it good?"</i>), Spotify or other music (<i>"How's the music?"</i>), games, coding,
-        drawing, Discord and other chats, Claude or ChatGPT, shopping and more. She also acts the part: she hops to your music, leans back to watch with you and
-        stops dashing around while you work. Nothing is saved except what she says to you.</small>
-      <div class="grid2">
-        <label>Talk about it at most every … minutes
-          <input name="activityMinutes" type="number" min="1" max="60" step="1" />
-          <small>1 to 60. The same kind of thing (another song, another video) waits 3× as long.</small>
-        </label>
-      </div>
-      <label class="check"><input name="activityAi" type="checkbox" /> Let her AI write what she says (it gets the app and the title, like a song or movie name)</label>
-      <small>Off: she uses her own built-in lines and nothing about your screen leaves your PC. Either way she never looks at
-        incognito / InPrivate windows, password managers, banking or sign-in pages.</small>
-    </section>
-
-    <section>
-      <h2>Voice &amp; sound</h2>
-      <label class="check"><input name="voiceEnabled" type="checkbox" /> She talks out loud</label>
-      <label>Her voice
-        <select name="ttsProvider" id="providerSelect">
-          <option value="fish">Capri's own voice (cloned from her clips with Fish Audio)</option>
-          <option value="edge">Microsoft Edge voice (free, built in, not her real voice)</option>
-        </select>
-      </label>
-
-      <div id="fishBox" class="subbox">
-        <small>Everything she says is spoken in the voice from her sample clips. Fish Audio's
-          <code>s2.1-pro-free</code> model is their free developer tier. Only clone a voice that is yours or that you have permission to use.</small>
-        <label>Fish Audio API key
-          <input name="fishApiKey" type="password" placeholder="paste your key" />
-          <small>Sign up at <a href="#" data-link="https://fish.audio">fish.audio</a>, then create a key under
-            <a href="#" data-link="https://fish.audio/app/api-keys/">API keys</a>. The key is only stored on this computer.</small>
+        <label>Chat model
+          <input name="chatModel" />
         </label>
         <div class="row">
-          <button type="button" id="makeVoice" class="secondary">Create Capri's voice from her clips</button>
-          <span id="voiceResult" class="result"></span>
+          <button type="button" id="test" class="secondary">Test connection</button>
+          <span id="testResult" class="result"></span>
         </div>
-        <label>Voice model ID
-          <input name="fishVoiceId" placeholder="filled in for you, or paste an ID or link from fish.audio" />
-        </label>
+      </section>
+    <section>
+        <h2>Ears (speech-to-text)</h2>
         <div class="grid2">
           <label>Model
-            <select name="fishModel">
-              <option value="s2.1-pro-free">S2.1 Pro, free tier</option>
-              <option value="s2.1-pro">S2.1 Pro, paid credits</option>
-            </select>
+            <input name="sttModel" />
           </label>
-          <label>Speed
-            <select name="fishSpeed">
-              <option value="0.9">A bit slow</option>
-              <option value="1">Normal</option>
-              <option value="1.1">A bit fast</option>
-              <option value="1.25">Fast</option>
+          <label>Language
+            <select name="sttLanguage">
+              <option value="en">English</option>
+              <option value="id">Indonesian</option>
+              <option value="ja">Japanese</option>
+              <option value="">Detect automatically</option>
             </select>
           </label>
         </div>
-        <small>Want a different sound? <a href="#" id="samplesFolder">Open the voice samples folder</a>, drop in clean clips of the voice,
-          then click "Create Capri's voice" again.</small>
-      </div>
-
-      <div id="edgeBox" class="subbox">
-        <small>Also used automatically if her cloned voice is offline.</small>
-        <label>Voice
-          <select name="ttsVoice" id="voiceSelect"></select>
+        <details id="sttMore">
+          <summary>Use a different service for speech-to-text</summary>
+          <label>STT API address (empty = same as above)
+            <input name="sttBaseUrl" type="url" placeholder="https://api.groq.com/openai/v1" />
+          </label>
+          <label>STT API key (empty = same as above)
+            <input name="sttApiKey" type="password" />
+          </label>
+          <small>Claude, Gemini and Ollama have no speech-to-text here. If her brain runs on either, put a Groq key here so voice chat still works.</small>
+        </details>
+      </section>
+    <section>
+        <h2>Hermes Agent</h2>
+        <small>Connect Capri to <a href="#" data-link="https://hermes-agent.nousresearch.com/docs/user-guide/windows-wsl-quickstart">Hermes Agent</a>
+          (running in WSL). Capri then talks through Hermes's brain and memory, and Hermes can use Capri's powers on this PC:
+          Spotify, opening and closing apps, media keys, reminders, and making her speak or react, even when you message Hermes from Telegram.</small>
+        <div id="hermesStatus" class="status-list">Checking…</div>
+        <div class="row">
+          <button type="button" id="hermesConnect" class="primary">Connect Capri and Hermes</button>
+          <span id="hermesResult" class="result"></span>
+        </div>
+        <ul id="hermesSteps" class="steps" hidden></ul>
+        <label class="check"><input name="hermesSetBrain" type="checkbox" /> Set up Hermes's AI model for me (no <code>hermes setup</code> needed)</label>
+        <label>Free Gemini key for Hermes (recommended)
+          <input name="hermesGeminiKey" type="password" placeholder="from aistudio.google.com/apikey — leave empty to reuse Capri's AI key" />
+          <small>Get one free at <a href="#" data-link="https://aistudio.google.com/apikey">Google AI Studio</a>. Hermes needs a model with a big memory (64K+), and Gemini's free tier fits.</small>
         </label>
+        <label class="check"><input id="hermesBrain" type="checkbox" /> Capri talks through Hermes (her brain)</label>
+        <label class="check"><input name="hermesBridge" type="checkbox" /> Let Hermes use Capri's powers (local tool server)</label>
+        <label class="check"><input name="hermesAutostart" type="checkbox" /> Start Hermes together with Capri</label>
+        <details>
+          <summary>Set it up by hand</summary>
+          <small>Add this to <code>~/.hermes/config.yaml</code> inside WSL (merge it into an existing <code>mcp_servers:</code>):</small>
+          <pre id="hermesYaml" class="code"></pre>
+          <small>…and these lines to <code>~/.hermes/.env</code>, then restart <code>hermes gateway</code>:</small>
+          <pre id="hermesEnv" class="code"></pre>
+        </details>
+      </section>
+    <section>
+        <h2>AI usage</h2>
+        <div id="usage" class="usage">Loading…</div>
         <div class="grid2">
-          <label>Pitch
-            <select name="ttsPitch">
-              <option value="-8%">A bit lower</option>
-              <option value="+0%">Normal</option>
-              <option value="+8%">A bit higher</option>
-              <option value="+15%">High (closest to Capri)</option>
-              <option value="+25%">Very high</option>
-            </select>
+          <label class="check"><input name="usageLimitOn" type="checkbox" /> Daily token limit</label>
+          <label>Tokens per day <input name="usageLimit" type="number" min="1000" max="100000000" step="1000" /></label>
+        </div>
+        <small>When the limit is reached, her automatic remarks switch to built-in lines until tomorrow and she tells you once.
+          Chatting with her keeps working. Hermes counts only the tokens it reports back.</small>
+        <div id="prices" class="prices"></div>
+        <small>Prices are optional: type each provider's price per million tokens (from their pricing page) to see the cost.</small>
+      </section>
+    </div>
+
+    <div class="cat" id="cat-her" data-cat="her">
+      <div class="cat-head"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13c0-3 2-5 5-5s5 2 5 5"/><rect x="5" y="2.5" width="6" height="5"/></svg><div><h2 class="cat-title">Capri</h2><p>Her name, personality, size and voice.</p></div></div>
+    <section>
+        <h2>Character</h2>
+        <div class="grid2">
+          <label>Character name
+            <input name="characterName" maxlength="30" />
           </label>
-          <label>Speed
-            <select name="ttsRate">
-              <option value="-10%">Slow</option>
-              <option value="+0%">Normal</option>
-              <option value="+6%">A bit fast</option>
-              <option value="+20%">Fast</option>
-            </select>
+          <label>Your name
+            <input name="userName" maxlength="30" placeholder="optional" />
           </label>
         </div>
-      </div>
-      <label class="check"><input name="voiceFx" type="checkbox" /> Digital voice effect (adds a robotic, electric edge)</label>
-      <div class="row">
-        <button type="button" id="preview" class="secondary">Save &amp; test voice</button>
-        <span id="previewResult" class="result"></span>
-      </div>
-      <label class="check"><input name="sfxEnabled" type="checkbox" /> Sound effects (lightning, teleport, glitch)</label>
-      <label>Effects volume
-        <input name="sfxVolume" type="range" min="0" max="1" step="0.05" />
-      </label>
-      <h3>Your own sounds</h3>
-      <small>Drop mp3, wav or ogg files into her sounds folder to replace any sound effect. The README inside the folder lists every name.
-        Click Save afterwards to load them.</small>
-      <div class="row">
-        <button type="button" id="soundsFolder" class="secondary">Open sounds folder</button>
-        <span id="soundsResult" class="result"></span>
-      </div>
-    </section>
-
-    <section>
-      <h2>Hermes Agent</h2>
-      <small>Connect Capri to <a href="#" data-link="https://hermes-agent.nousresearch.com/docs/user-guide/windows-wsl-quickstart">Hermes Agent</a>
-        (running in WSL). Capri then talks through Hermes's brain and memory, and Hermes can use Capri's powers on this PC:
-        Spotify, opening and closing apps, media keys, reminders, and making her speak or react, even when you message Hermes from Telegram.</small>
-      <div id="hermesStatus" class="status-list">Checking…</div>
-      <div class="row">
-        <button type="button" id="hermesConnect" class="primary">Connect Capri and Hermes</button>
-        <span id="hermesResult" class="result"></span>
-      </div>
-      <ul id="hermesSteps" class="steps" hidden></ul>
-      <label class="check"><input name="hermesSetBrain" type="checkbox" /> Set up Hermes's AI model for me (no <code>hermes setup</code> needed)</label>
-      <label>Free Gemini key for Hermes (recommended)
-        <input name="hermesGeminiKey" type="password" placeholder="from aistudio.google.com/apikey — leave empty to reuse Capri's AI key" />
-        <small>Get one free at <a href="#" data-link="https://aistudio.google.com/apikey">Google AI Studio</a>. Hermes needs a model with a big memory (64K+), and Gemini's free tier fits.</small>
-      </label>
-      <label class="check"><input id="hermesBrain" type="checkbox" /> Capri talks through Hermes (her brain)</label>
-      <label class="check"><input name="hermesBridge" type="checkbox" /> Let Hermes use Capri's powers (local tool server)</label>
-      <label class="check"><input name="hermesAutostart" type="checkbox" /> Start Hermes together with Capri</label>
-      <details>
-        <summary>Set it up by hand</summary>
-        <small>Add this to <code>~/.hermes/config.yaml</code> inside WSL (merge it into an existing <code>mcp_servers:</code>):</small>
-        <pre id="hermesYaml" class="code"></pre>
-        <small>…and these lines to <code>~/.hermes/.env</code>, then restart <code>hermes gateway</code>:</small>
-        <pre id="hermesEnv" class="code"></pre>
-      </details>
-    </section>
-
-    <section>
-      <h2>Computer control</h2>
-      <small>Capri can use your PC when you ask: see what's in the active window, click, type, press shortcuts, switch and close
-        windows, manage files and folders, and run PowerShell commands. Ask her things like <i>"open Notepad and write a shopping list"</i>,
-        <i>"what's in my Downloads?"</i> or <i>"move the PDFs on my Desktop into a folder"</i>.
-        She sees apps through Windows' accessibility info (buttons, fields, text), not pictures, so games and drawing apps may look empty to her.</small>
-      <h3 class="sub">Do these without asking me first</h3>
-      <label class="check"><input type="checkbox" data-perm="apps" /> Click, type and press keys in apps</label>
-      <label class="check"><input type="checkbox" data-perm="files" /> Create, change, move and delete files (deleting always goes to the Recycle Bin)</label>
-      <label class="check"><input type="checkbox" data-perm="browser" /> Browser clicks that send, buy, post or sign in</label>
-      <label class="check"><input type="checkbox" data-perm="commands" /> Run PowerShell commands and programs <b class="warn">(risky: a command can do anything)</b></label>
-      <div class="row"><button type="button" id="permAll">Allow everything (except commands)</button><button type="button" id="permNone">Ask me every time</button><span id="permSaved" class="result"></span></div>
-      <small>Always, whatever you tick: she never types passwords or card numbers, never reads her own keys or your saved passwords,
-        deletes only to the Recycle Bin, and on Discord only you can make her do any of this. Things written on web pages, in files or
-        on screen are never treated as your instructions. Ticking these makes her faster but means a mistake (or a sneaky web page)
-        won't be stopped by a question first.</small>
-    </section>
-
-    <section>
-      <h2>Browser</h2>
-      <small>Let Capri use your browser: open and switch tabs, read pages for you, click, type and fill forms, play/pause videos.
-        She works in your real browser with your logins. Anything that could send, buy, post or delete asks you first on the desktop,
-        and she never types passwords or card numbers. Ask her things like <i>"open YouTube in Edge and play lofi"</i> or <i>"what does this page say?"</i>.</small>
-      <div id="browserStatus" class="status-list"></div>
-      <b class="sub">Chrome, Edge, Brave, Opera or Vivaldi</b>
-      <ol class="steps">
-        <li>Click <b>Open extension folder</b> below.</li>
-        <li>In the browser, open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>) and turn on <b>Developer mode</b>.</li>
-        <li>Click <b>Load unpacked</b> and pick that folder (<code>browser-extension</code>).</li>
-        <li>Capri pops up and asks if she may use that browser: click <b>Allow</b>.</li>
-      </ol>
-      <div class="row"><button type="button" id="extOpen">Open extension folder</button></div>
-      <details>
-        <summary>Firefox</summary>
-        <small>Open <code>about:debugging</code> → <b>This Firefox</b> → <b>Load Temporary Add-on</b> and pick <code>manifest.json</code> in the
-          <code>browser-extension-firefox</code> folder. Then in <code>about:addons</code> → Capri Browser Link → <b>Permissions</b>, allow
-          <b>Access your data for all websites</b>. Firefox forgets temporary add-ons when it closes, so load it again after a restart.</small>
-        <div class="row"><button type="button" id="extOpenFx">Open Firefox extension folder</button></div>
-      </details>
-    </section>
-
-    <section>
-      <h2>Discord bot</h2>
-      <small>Put Capri on your Discord server. Anyone can chat with her (mention <b>@Capri</b>, reply to her, or DM her);
-        only you can make her play music or control this PC. She runs while the Capri app is open.</small>
-      <ol class="steps">
-        <li>Open the <a href="#" data-link="https://discord.com/developers/applications">Discord Developer Portal</a>, click <b>New Application</b> and name it <b>Capri</b>.</li>
-        <li>Go to <b>Bot</b>, click <b>Reset Token</b> and copy the token into the box below.</li>
-        <li>On the same page, under <b>Privileged Gateway Intents</b>, turn on <b>Message Content Intent</b> and save.</li>
-        <li>Click <b>Save &amp; start the bot</b> here, then <b>Invite Capri to a server</b>.</li>
-      </ol>
-      <label>Bot token
-        <input name="discordToken" type="password" placeholder="from Developer Portal → Bot → Reset Token" />
-      </label>
-      <label class="check"><input name="discordEnabled" type="checkbox" /> Run Capri's Discord bot <small>(on one PC only, or she answers twice)</small></label>
-      <label class="check"><input name="discordDesktop" type="checkbox" /> Show Discord chats on my desktop Capri</label>
-      <label class="check"><input name="discordVoice" type="checkbox" /> Speak her replies in voice channels (after <code>/join</code>)</label>
-      <div id="discordStatus" class="status-list"><div><span class="dot"></span>Off</div></div>
-      <div class="row">
-        <button type="button" id="discordStart" class="primary">Save &amp; start the bot</button>
-        <button type="button" id="discordInvite" class="secondary" hidden>Invite Capri to a server</button>
-      </div>
-      <details>
-        <summary>Commands &amp; owner</summary>
-        <small><code>/ask</code> chat · <code>/owner</code> who's her owner · <code>/zap</code> make desktop Capri power up · <code>/join</code> / <code>/leave</code> voice channel ·
-          owner only: <code>/play</code> <code>/music</code> <code>/nowplaying</code> <code>/say</code>. Slash commands can take a few minutes to show up the first time.</small>
-        <label>Owner (your Discord username)
-          <input name="discordOwnerId" placeholder="e.g. capri_fan — empty = the account that created the bot" />
-          <small>Your <b>username</b> (the unique one under your name in Discord, not your display name). Add more accounts with commas, e.g. <code>capri_fan, capri_fan_alt</code>.
-            Type <code>/owner</code> in Discord to check who she thinks her owner is.</small>
+        <label>Personality &amp; speaking style
+          <textarea name="personality" rows="5"></textarea>
         </label>
-      </details>
-    </section>
-
+        <label>Pixel size <output id="scaleOut"></output>
+          <input name="scale" type="range" min="2" max="14" step="1" />
+          <small>You can also hover over her and scroll.</small>
+        </label>
+        <label class="check"><input name="autonomy" type="checkbox" /> Let her walk, dash, teleport &amp; chat on her own now and then</label>
+      </section>
     <section>
-      <h2>Spotify</h2>
-      <small>Without connecting, she can still open Spotify, pause, skip, change the volume, open a song search,
-        and tell you what's playing. To let her <b>open the exact song, artist or playlist you ask for</b>, queue songs and shuffle,
-        connect Spotify. That needs Spotify Premium, plus a free developer app:</small>
-      <ol class="steps">
-        <li>Open <a href="#" data-link="https://developer.spotify.com/dashboard">developer.spotify.com/dashboard</a>, log in, and click <b>Create app</b>.</li>
-        <li>Give it any name and description. Under <b>Redirect URIs</b> add exactly
-          <code id="redirectUri">http://127.0.0.1:43821/callback</code>
-          <button type="button" id="copyRedirect" class="mini">Copy</button>, tick <b>Web API</b>, and save.</li>
-        <li>Copy the app's <b>Client ID</b> into the box below and click <b>Connect Spotify</b>.</li>
-      </ol>
-      <label>Client ID
-        <input name="spotifyClientId" placeholder="32 letters and numbers from your Spotify app" />
-      </label>
-      <div class="row">
-        <button type="button" id="spotifyConnect" class="secondary">Connect Spotify</button>
-        <button type="button" id="spotifyDisconnect" class="secondary" hidden>Disconnect</button>
-        <span id="spotifyResult" class="result"></span>
-      </div>
-    </section>
+        <h2>Voice &amp; sound</h2>
+        <label class="check"><input name="voiceEnabled" type="checkbox" /> She talks out loud</label>
+        <label>Her voice
+          <select name="ttsProvider" id="providerSelect">
+            <option value="fish">Capri's own voice (cloned from her clips with Fish Audio)</option>
+            <option value="edge">Microsoft Edge voice (free, built in, not her real voice)</option>
+          </select>
+        </label>
+  
+        <div id="fishBox" class="subbox">
+          <small>Everything she says is spoken in the voice from her sample clips. Fish Audio's
+            <code>s2.1-pro-free</code> model is their free developer tier. Only clone a voice that is yours or that you have permission to use.</small>
+          <label>Fish Audio API key
+            <input name="fishApiKey" type="password" placeholder="paste your key" />
+            <small>Sign up at <a href="#" data-link="https://fish.audio">fish.audio</a>, then create a key under
+              <a href="#" data-link="https://fish.audio/app/api-keys/">API keys</a>. The key is only stored on this computer.</small>
+          </label>
+          <div class="row">
+            <button type="button" id="makeVoice" class="secondary">Create Capri's voice from her clips</button>
+            <span id="voiceResult" class="result"></span>
+          </div>
+          <label>Voice model ID
+            <input name="fishVoiceId" placeholder="filled in for you, or paste an ID or link from fish.audio" />
+          </label>
+          <div class="grid2">
+            <label>Model
+              <select name="fishModel">
+                <option value="s2.1-pro-free">S2.1 Pro, free tier</option>
+                <option value="s2.1-pro">S2.1 Pro, paid credits</option>
+              </select>
+            </label>
+            <label>Speed
+              <select name="fishSpeed">
+                <option value="0.9">A bit slow</option>
+                <option value="1">Normal</option>
+                <option value="1.1">A bit fast</option>
+                <option value="1.25">Fast</option>
+              </select>
+            </label>
+          </div>
+          <small>Want a different sound? <a href="#" id="samplesFolder">Open the voice samples folder</a>, drop in clean clips of the voice,
+            then click "Create Capri's voice" again.</small>
+        </div>
+  
+        <div id="edgeBox" class="subbox">
+          <small>Also used automatically if her cloned voice is offline.</small>
+          <label>Voice
+            <select name="ttsVoice" id="voiceSelect"></select>
+          </label>
+          <div class="grid2">
+            <label>Pitch
+              <select name="ttsPitch">
+                <option value="-8%">A bit lower</option>
+                <option value="+0%">Normal</option>
+                <option value="+8%">A bit higher</option>
+                <option value="+15%">High (closest to Capri)</option>
+                <option value="+25%">Very high</option>
+              </select>
+            </label>
+            <label>Speed
+              <select name="ttsRate">
+                <option value="-10%">Slow</option>
+                <option value="+0%">Normal</option>
+                <option value="+6%">A bit fast</option>
+                <option value="+20%">Fast</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <label class="check"><input name="voiceFx" type="checkbox" /> Digital voice effect (adds a robotic, electric edge)</label>
+        <div class="row">
+          <button type="button" id="preview" class="secondary">Save &amp; test voice</button>
+          <span id="previewResult" class="result"></span>
+        </div>
+        <label class="check"><input name="sfxEnabled" type="checkbox" /> Sound effects (lightning, teleport, glitch)</label>
+        <label>Effects volume
+          <input name="sfxVolume" type="range" min="0" max="1" step="0.05" />
+        </label>
+        <h3>Your own sounds</h3>
+        <small>Drop mp3, wav or ogg files into her sounds folder to replace any sound effect. The README inside the folder lists every name.
+          Click Save afterwards to load them.</small>
+        <div class="row">
+          <button type="button" id="soundsFolder" class="secondary">Open sounds folder</button>
+          <span id="soundsResult" class="result"></span>
+        </div>
+      </section>
+    </div>
 
+    <div class="cat" id="cat-alive" data-cat="alive">
+      <div class="cat-head"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.5S2.5 10 2.5 6.2A2.7 2.7 0 0 1 8 4.8a2.7 2.7 0 0 1 5.5 1.4C13.5 10 8 13.5 8 13.5z"/></svg><div><h2 class="cat-title">Alive &amp; care</h2><p>What she notices on your screen and what she reminds you about.</p></div></div>
     <section>
-      <h2>Shortcuts</h2>
-      <div class="grid3">
-        <label>Talk (voice)<input name="hotkeyTalk" /></label>
-        <label>Type a message<input name="hotkeyType" /></label>
-        <label>Hide / summon<input name="hotkeyHide" /></label>
-      </div>
-      <small>Electron format, e.g. <code>Control+Alt+Space</code>, <code>Control+Shift+A</code>.</small>
-      <label class="check"><input name="openAtLogin" type="checkbox" /> Start Capri when Windows starts</label>
-    </section>
+        <h2>Make her more alive</h2>
+        <label class="check"><input name="activityAware" type="checkbox" /> Let her notice what I'm doing on my main screen</label>
+        <small>She looks only at the window in front on your main screen, every few seconds, and reacts now and then: watching a
+          movie or YouTube (<i>"How's the movie, is it good?"</i>), Spotify or other music (<i>"How's the music?"</i>), games, coding,
+          drawing, Discord and other chats, Claude or ChatGPT, shopping and more. She also acts the part: she hops to your music, leans back to watch with you and
+          stops dashing around while you work. Nothing is saved except what she says to you.</small>
+        <div class="grid2">
+          <label>Talk about it at most every … minutes
+            <input name="activityMinutes" type="number" min="1" max="60" step="1" />
+            <small>1 to 60. The same kind of thing (another song, another video) waits 3× as long.</small>
+          </label>
+        </div>
+        <label class="check"><input name="activityAi" type="checkbox" /> Let her AI write what she says (it gets the app and the title, like a song or movie name)</label>
+        <small>Off: she uses her own built-in lines and nothing about your screen leaves your PC. Either way she never looks at
+          incognito / InPrivate windows, password managers, banking or sign-in pages.</small>
+      </section>
+    <section>
+        <h2>Care &amp; PC alerts</h2>
+        <label class="check"><input name="careEyes" type="checkbox" /> Eye break every 20 minutes of use</label>
+        <label class="check"><input name="careWater" type="checkbox" /> Water reminder every hour of use</label>
+        <div class="grid2">
+          <label class="check"><input name="careBedtime" type="checkbox" /> Bedtime reminders (until 5 AM)</label>
+          <label>Bedtime starts at <input name="careBedtimeAt" type="time" /></label>
+        </div>
+        <label class="check"><input name="carePc" type="checkbox" /> PC alerts: low battery, CPU busy for 2 minutes, disk over 90% full, internet down</label>
+        <small>She says each one once, when she isn't busy, and looks the part (overheated, tired, worried). Uses no AI tokens.
+          CPU temperature can't be read without admin rights on most PCs, so she watches how busy the CPU is instead.</small>
+      </section>
+    </div>
+
+    <div class="cat" id="cat-pc" data-cat="pc">
+      <div class="cat-head"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="8"/><path d="M6 14h4M8 11v3"/></svg><div><h2 class="cat-title">PC &amp; browser</h2><p>What she may do on your computer and in your browser.</p></div></div>
+    <section>
+        <h2>Computer control</h2>
+        <small>Capri can use your PC when you ask: see what's in the active window, click, type, press shortcuts, switch and close
+          windows, manage files and folders, and run PowerShell commands. Ask her things like <i>"open Notepad and write a shopping list"</i>,
+          <i>"what's in my Downloads?"</i> or <i>"move the PDFs on my Desktop into a folder"</i>.
+          She sees apps through Windows' accessibility info (buttons, fields, text), not pictures, so games and drawing apps may look empty to her.</small>
+        <h3 class="sub">Do these without asking me first</h3>
+        <label class="check"><input type="checkbox" data-perm="apps" /> Click, type and press keys in apps</label>
+        <label class="check"><input type="checkbox" data-perm="files" /> Create, change, move and delete files (deleting always goes to the Recycle Bin)</label>
+        <label class="check"><input type="checkbox" data-perm="browser" /> Browser clicks that send, buy, post or sign in</label>
+        <label class="check"><input type="checkbox" data-perm="commands" /> Run PowerShell commands and programs <b class="warn">(risky: a command can do anything)</b></label>
+        <div class="row"><button type="button" id="permAll" class="secondary">Allow everything (except commands)</button><button type="button" id="permNone" class="secondary">Ask me every time</button><span id="permSaved" class="result"></span></div>
+        <small>Always, whatever you tick: she never types passwords or card numbers, never reads her own keys or your saved passwords,
+          deletes only to the Recycle Bin, and on Discord only you can make her do any of this. Things written on web pages, in files or
+          on screen are never treated as your instructions. Ticking these makes her faster but means a mistake (or a sneaky web page)
+          won't be stopped by a question first.</small>
+      </section>
+    <section>
+        <h2>Browser</h2>
+        <small>Let Capri use your browser: open and switch tabs, read pages for you, click, type and fill forms, play/pause videos.
+          She works in your real browser with your logins. Anything that could send, buy, post or delete asks you first on the desktop,
+          and she never types passwords or card numbers. Ask her things like <i>"open YouTube in Edge and play lofi"</i> or <i>"what does this page say?"</i>.</small>
+        <div id="browserStatus" class="status-list"></div>
+        <details class="howto" id="howtoBrowser">
+          <summary>How to link a browser</summary>
+          <b class="sub">Chrome, Edge, Brave, Opera or Vivaldi</b>
+        <ol class="steps">
+          <li>Click <b>Open extension folder</b> below.</li>
+          <li>In the browser, open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>) and turn on <b>Developer mode</b>.</li>
+          <li>Click <b>Load unpacked</b> and pick that folder (<code>browser-extension</code>).</li>
+          <li>Capri pops up and asks if she may use that browser: click <b>Allow</b>.</li>
+        </ol>
+        <div class="row"><button type="button" id="extOpen" class="secondary">Open extension folder</button></div>
+        </details>
+        <details>
+          <summary>Firefox</summary>
+          <small>Open <code>about:debugging</code> → <b>This Firefox</b> → <b>Load Temporary Add-on</b> and pick <code>manifest.json</code> in the
+            <code>browser-extension-firefox</code> folder. Then in <code>about:addons</code> → Capri Browser Link → <b>Permissions</b>, allow
+            <b>Access your data for all websites</b>. Firefox forgets temporary add-ons when it closes, so load it again after a restart.</small>
+          <div class="row"><button type="button" id="extOpenFx" class="secondary">Open Firefox extension folder</button></div>
+        </details>
+      </section>
+    </div>
+
+    <div class="cat" id="cat-apps" data-cat="apps">
+      <div class="cat-head"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 12V4l7-1.5V10.5"/><circle cx="4.5" cy="12" r="1.6"/><circle cx="11.5" cy="10.5" r="1.6"/></svg><div><h2 class="cat-title">Spotify &amp; Discord</h2><p>Music control and her Discord bot.</p></div></div>
+    <section>
+        <h2>Spotify</h2>
+        <small>Without connecting, she can still open Spotify, pause, skip, change the volume, open a song search,
+          and tell you what's playing. To let her <b>open the exact song, artist or playlist you ask for</b>, queue songs and shuffle,
+          connect Spotify. That needs Spotify Premium, plus a free developer app:</small>
+        <details class="howto" id="howtoSpotify">
+          <summary>How to connect (3 steps)</summary>
+          <ol class="steps">
+          <li>Open <a href="#" data-link="https://developer.spotify.com/dashboard">developer.spotify.com/dashboard</a>, log in, and click <b>Create app</b>.</li>
+          <li>Give it any name and description. Under <b>Redirect URIs</b> add exactly
+            <code id="redirectUri">http://127.0.0.1:43821/callback</code>
+            <button type="button" id="copyRedirect" class="mini">Copy</button>, tick <b>Web API</b>, and save.</li>
+          <li>Copy the app's <b>Client ID</b> into the box below and click <b>Connect Spotify</b>.</li>
+        </ol>
+        </details>
+        <label>Client ID
+          <input name="spotifyClientId" placeholder="32 letters and numbers from your Spotify app" />
+        </label>
+        <div class="row">
+          <button type="button" id="spotifyConnect" class="secondary">Connect Spotify</button>
+          <button type="button" id="spotifyDisconnect" class="secondary" hidden>Disconnect</button>
+          <span id="spotifyResult" class="result"></span>
+        </div>
+      </section>
+    <section>
+        <h2>Discord bot</h2>
+        <small>Put Capri on your Discord server. Anyone can chat with her (mention <b>@Capri</b>, reply to her, or DM her);
+          only you can make her play music or control this PC. She runs while the Capri app is open.</small>
+        <details class="howto" id="howtoDiscord">
+          <summary>How to make the bot (4 steps)</summary>
+          <ol class="steps">
+          <li>Open the <a href="#" data-link="https://discord.com/developers/applications">Discord Developer Portal</a>, click <b>New Application</b> and name it <b>Capri</b>.</li>
+          <li>Go to <b>Bot</b>, click <b>Reset Token</b> and copy the token into the box below.</li>
+          <li>On the same page, under <b>Privileged Gateway Intents</b>, turn on <b>Message Content Intent</b> and save.</li>
+          <li>Click <b>Save &amp; start the bot</b> here, then <b>Invite Capri to a server</b>.</li>
+        </ol>
+        </details>
+        <label>Bot token
+          <input name="discordToken" type="password" placeholder="from Developer Portal → Bot → Reset Token" />
+        </label>
+        <label class="check"><input name="discordEnabled" type="checkbox" /> Run Capri's Discord bot <small>(on one PC only, or she answers twice)</small></label>
+        <label class="check"><input name="discordDesktop" type="checkbox" /> Show Discord chats on my desktop Capri</label>
+        <label class="check"><input name="discordVoice" type="checkbox" /> Speak her replies in voice channels (after <code>/join</code>)</label>
+        <div id="discordStatus" class="status-list"><div><span class="dot"></span>Off</div></div>
+        <div class="row">
+          <button type="button" id="discordStart" class="primary">Save &amp; start the bot</button>
+          <button type="button" id="discordInvite" class="secondary" hidden>Invite Capri to a server</button>
+        </div>
+        <details>
+          <summary>Commands &amp; owner</summary>
+          <small><code>/ask</code> chat · <code>/owner</code> who's her owner · <code>/zap</code> make desktop Capri power up · <code>/join</code> / <code>/leave</code> voice channel ·
+            owner only: <code>/play</code> <code>/music</code> <code>/nowplaying</code> <code>/say</code>. Slash commands can take a few minutes to show up the first time.</small>
+          <label>Owner (your Discord username)
+            <input name="discordOwnerId" placeholder="e.g. capri_fan — empty = the account that created the bot" />
+            <small>Your <b>username</b> (the unique one under your name in Discord, not your display name). Add more accounts with commas, e.g. <code>capri_fan, capri_fan_alt</code>.
+              Type <code>/owner</code> in Discord to check who she thinks her owner is.</small>
+          </label>
+        </details>
+      </section>
+    </div>
+
+    <div class="cat" id="cat-general" data-cat="general">
+      <div class="cat-head"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="5" width="12" height="7"/><path d="M4.5 7.5h1M7.5 7.5h1M10.5 7.5h1M5 10h6"/></svg><div><h2 class="cat-title">General</h2><p>Hotkeys and starting with Windows.</p></div></div>
+    <section>
+        <h2>Shortcuts &amp; startup</h2>
+        <div class="grid3">
+          <label>Talk (voice)<input name="hotkeyTalk" /></label>
+          <label>Type a message<input name="hotkeyType" /></label>
+          <label>Hide / summon<input name="hotkeyHide" /></label>
+        </div>
+        <small>Electron format, e.g. <code>Control+Alt+Space</code>, <code>Control+Shift+A</code>.</small>
+        <label class="check"><input name="openAtLogin" type="checkbox" /> Start Capri when Windows starts</label>
+      </section>
+    </div>
+    <p id="nothing" hidden>No setting matches that.</p>
   </form>
+  </div>
 
   <footer>
     <span id="saved" class="result"></span>

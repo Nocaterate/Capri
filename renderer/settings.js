@@ -53,7 +53,7 @@ function markPreset() {
 document.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
   for (const [k, v] of Object.entries(PRESETS[b.dataset.preset])) form.elements[k].value = v;
   if (['ollama', 'claude', 'gemini', 'openrouter'].includes(b.dataset.preset)) {
-    document.querySelector('details').open = true;
+    document.getElementById('sttMore').open = true;
     if (!form.elements.sttBaseUrl.value) form.elements.sttBaseUrl.value = 'https://api.groq.com/openai/v1';
     if (form.elements.sttModel.value === 'whisper-1') form.elements.sttModel.value = 'whisper-large-v3-turbo';
   }
@@ -79,8 +79,49 @@ $('test').addEventListener('click', async () => {
   r.textContent = res.message;
 });
 
+// ---- AI usage: today / this month / last 7 days, per brain, with optional prices
+const BRAIN_COLORS = ['#ff2e78', '#5ec8ff', '#2eff8c', '#ffb347', '#b48cff', '#ff70a2', '#f8e81c'];
+let usagePrices = {};
+const fmt = (n) => Number(n || 0).toLocaleString('en-US');
+const money = (c) => (c == null ? '' : ` · ≈ $${c < 0.01 ? c.toFixed(4) : c.toFixed(2)}`);
+async function showUsage() {
+  if (!api.usageGet || !$('usage')) return;
+  let u;
+  try { u = await api.usageGet(); } catch { return; }
+  if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#prices')) usagePrices = { ...(u.prices || {}) };
+  const t = u.today, m = u.month;
+  const colorOf = (name) => BRAIN_COLORS[Math.max(0, u.brains.indexOf(name)) % BRAIN_COLORS.length];
+  const max = Math.max(1, ...u.last7.map((d) => d.total));
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  $('usage').innerHTML = `
+    <div class="totals"><div><div class="sub">Today</div><div class="big">${fmt(t.total)}</div><div class="sub">tokens${money(t.cost)}</div></div>
+      <div><div class="sub">This month</div><div class="big">${fmt(m.total)}</div><div class="sub">tokens${money(m.cost)}</div></div></div>
+    ${t.total ? `<div class="sub">By brain (today)</div><div class="stack">${t.brains.map((b) => `<span style="width:${(b.total / t.total) * 100}%;background:${colorOf(b.name)}"></span>`).join('')}</div>
+      <div class="legend">${t.brains.map((b) => `<span><i style="background:${colorOf(b.name)}"></i>${b.name} ${fmt(b.total)} (${b.calls} calls)${money(b.cost)}</span>`).join('')}</div>` : '<div class="sub">No AI calls yet today.</div>'}
+    <div class="days">${u.last7.map((d, i) => `<div class="${i === 6 ? 'today' : ''}" title="${d.date}: ${fmt(d.total)} tokens"><b style="height:${(d.total / max) * 52}px"></b>${days[new Date(d.date + 'T12:00').getDay()]}</div>`).join('')}</div>`;
+  const pr = $('prices');
+  if (pr && !pr.contains(document.activeElement)) {
+    const brains = [...new Set([...u.brains, ...Object.keys(usagePrices)])];
+    pr.innerHTML = brains.length ? `<span class="sub">Brain</span><span class="sub">$ per 1M input</span><span class="sub">$ per 1M output</span>` + brains.map((b) =>
+      `<span>${b}</span><input type="number" min="0" step="0.01" data-brain="${b}" data-kind="in" value="${usagePrices[b] && usagePrices[b].in != null ? usagePrices[b].in : ''}" placeholder="—" />` +
+      `<input type="number" min="0" step="0.01" data-brain="${b}" data-kind="out" value="${usagePrices[b] && usagePrices[b].out != null ? usagePrices[b].out : ''}" placeholder="—" />`).join('') : '';
+  }
+}
+function readPrices() {
+  const out = {};
+  document.querySelectorAll('#prices input[data-brain]').forEach((el) => {
+    const v = el.value === '' ? null : Number(el.value);
+    if (v == null || !Number.isFinite(v) || v < 0) return;
+    (out[el.dataset.brain] = out[el.dataset.brain] || {})[el.dataset.kind] = v;
+  });
+  return out;
+}
+showUsage();
+setInterval(showUsage, 5000);
+
 async function save() {
-  await api.setConfig(read());
+  await api.setConfig({ ...read(), usagePrices: readPrices() });
+  showUsage();
   scaleTouched = false;
   const s = $('saved');
   s.className = 'result ok';
@@ -263,3 +304,45 @@ $('permAll').addEventListener('click', () => { for (const b of permBoxes) b.chec
 $('permNone').addEventListener('click', () => { for (const b of permBoxes) b.checked = false; permSave(); });
 if (api.onPermissions) api.onPermissions(permShow);
 (async () => { try { permShow(await api.getPermissions()); } catch { /* old Capri */ } })();
+
+// ---------- categories: one shows at a time (sidebar), the find box searches all of them
+const cats = [...document.querySelectorAll('.cat')];
+const catBtns = [...document.querySelectorAll('#cats [data-cat]')];
+let catNow = 'ai';
+function showCat(id) {
+  if (!cats.some((c) => c.dataset.cat === id)) id = cats[0].dataset.cat;
+  catNow = id;
+  $('find').value = '';
+  for (const s of document.querySelectorAll('.cat section')) s.hidden = false;
+  $('nothing').hidden = true;
+  for (const b of catBtns) b.classList.toggle('active', b.dataset.cat === id);
+  for (const c of cats) c.hidden = c.dataset.cat !== id;
+  window.scrollTo(0, 0);
+  try { localStorage.setItem('capriSettingsCat', id); } catch { /* no storage */ }
+}
+function find() {
+  const q = $('find').value.trim().toLowerCase();
+  if (!q) { showCat(catNow); return; }
+  let any = false;
+  for (const c of cats) {
+    let hit = false;
+    for (const s of c.querySelectorAll('section')) { const ok = s.textContent.toLowerCase().includes(q); s.hidden = !ok; hit = hit || ok; }
+    c.hidden = !hit; any = any || hit;
+  }
+  for (const b of catBtns) b.classList.remove('active');
+  $('nothing').hidden = any;
+}
+for (const b of catBtns) b.addEventListener('click', () => showCat(b.dataset.cat));
+$('find').addEventListener('input', find);
+try { catNow = localStorage.getItem('capriSettingsCat') || 'ai'; } catch { /* no storage */ }
+showCat(catNow);
+
+// setup steps stay folded once that thing is set up
+(async () => {
+  try {
+    const c = await api.getFullConfig();
+    if (!c.discordToken) $('howtoDiscord').open = true;
+    if (!(await api.spotifyStatus()).connected) $('howtoSpotify').open = true;
+    if (!((await api.browserStatus()).browsers || []).length) $('howtoBrowser').open = true;
+  } catch { /* older Capri */ }
+})();

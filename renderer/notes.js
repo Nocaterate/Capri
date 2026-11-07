@@ -285,12 +285,12 @@ export function initNotes(env) {
       st.notesOpen = true;               // keeps her from wandering off while the panel is up
       st.lastInteraction = performance.now();
       // 1. a quick charge
-      if (['idle', 'speaking'].includes(st.mode) && !st.action) { env.play('charge', 0.45); sfx.powerUp(0.4); await sleep(430); }
+      if (['idle', 'speaking'].includes(st.mode) && !st.action && !st.tv) { env.play('charge', 0.45); sfx.powerUp(0.4); await sleep(430); }
       // 2. zap toward the side of the screen with more room (red electric form)
       const W = env.W(), r = reach();
       const goLeft = st.pos.x > W / 2;
       const target = goLeft ? r + 16 : W - r - 16;
-      if (st.mode === 'idle') {
+      if (st.mode === 'idle' && !st.tv) {        // (in TV mode she stays in the TV)
         env.startWalk(target, true, 2.6);   // a fast zap, not a stroll
         await waitFor(() => st.mode !== 'walking', 5000);
         await sleep(env.duoX() != null ? 650 : 120);   // with D: let her burst back out of him first
@@ -299,14 +299,14 @@ export function initNotes(env) {
       // 3. cast, and the hologram scans in beside her
       place();
       st.flip = side;
-      env.play('cast', 1.1);
+      if (!st.tv) env.play('cast', 1.1);
       await sleep(170);
       setTab(tab);
       wrap.hidden = false;
       place();
       wrap.classList.remove('closing'); void wrap.offsetWidth; wrap.classList.add('opening');
       const o = env.orbScreen(), p = edgePoint();
-      fx.bolt(o.x, o.y, p.x, p.y, { life: 0.3, width: 1.5, branches: 3 });
+      if (!st.tv) fx.bolt(o.x, o.y, p.x, p.y, { life: 0.3, width: 1.5, branches: 3 });
       fx.burst(p.x, p.y, 14, { speed: 220, life: 0.4, gravity: 0 });
       fx.doFlash(0.15);
       sfx.zap(0.9);

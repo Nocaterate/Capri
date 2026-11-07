@@ -8,6 +8,7 @@ import * as sfx from './sfx.js';
 import { initNotes } from './notes.js';
 import { initParty } from './party.js';
 import { initRide } from './ride.js';
+import { initTv } from './tv.js';
 
 const api = window.companion;
 const $ = (id) => document.getElementById(id);
@@ -275,7 +276,7 @@ async function teleportOut() {
   fx.bolt(h.x, h.y, h.x + rand(-40, 40), -20, { life: 0.3, width: 1.3, branches: 2 });
   fx.doFlash(0.35);
   sfx.zap(1.2);
-  if (duoShown() && !duo.ride && duo.leave <= 0) {   // D goes with her: his pixels fly off too
+  if (duoShown() && !duo.ride && !duo.tv && duo.leave <= 0) {   // D goes with her: his pixels fly off too
     fx.shatter(dFramePixels(true).map((p) => ({ ...p, c: '#FF5C9A' })), { up: 220 * (S / 6), spread: 150 * (S / 6) });
     duo.tp = true;
   }
@@ -303,7 +304,7 @@ async function teleportIn(x = st.pos.x, { dramatic = false } = {}) {
   st.sx = 1; st.sy = 1; st.whiten = 0;
   compose();
   fx.converge(framePixels(1, 2.2), { from: 160 * (S / 6), life: 0.3 });
-  if (duo.shown && !duo.ride && duo.leave <= 0) {    // …and D's, next to her new spot
+  if (duo.shown && !duo.ride && !duo.tv && duo.leave <= 0) {    // …and D's, next to her new spot
     duo.tp = true;
     duo.x = clamp(st.pos.x - duo.cdx * S, 24 * S, W - 24 * S);
     duo.py = null;
@@ -502,7 +503,7 @@ function pokeD() {
   speak(pick(D_POKE_LINES), 'happy', { quick: true });
 }
 function overD(x, y) {
-  if (!duoShown() || duo.ride || duo.tp || duo.arrive > 0.45 || duo.leave > 0) return false;
+  if (!duoShown() || duo.ride || duo.tp || duo.tv || duo.arrive > 0.45 || duo.leave > 0) return false;
   const s = DS(), sx = Math.floor((x - duo.x) / s + DAX), sy = Math.floor((y - dGround()) / s + DAY);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dAlpha(duo.frame, sx + dx, sy + dy) > 120) return true;
   return false;
@@ -510,7 +511,7 @@ function overD(x, y) {
 
 function updateDuo(dt, now) {
   if (!duo.shown) { st.duoLift = lerp(st.duoLift, 0, Math.min(1, dt * 6)); return; }
-  if (duo.ride) return;                           // In Love With Myself: he's up on the car (drawn by ride.js)
+  if (duo.ride || duo.tv) return;                 // In Love With Myself: he's up on the car; TV mode: he waits outside
   if (st.party && st.party.kind !== 'ride' && duo.leave <= 0) { updateDuoParty(dt); return; }
   duo.arrive = Math.max(0, duo.arrive - dt / 0.9);
   duo.glitch = Math.max(0, duo.glitch - dt);
@@ -671,7 +672,7 @@ function drawCoil(front) {
 }
 
 function drawD() {
-  if (!duoShown() || duo.ride || duo.tp) return;
+  if (!duoShown() || duo.ride || duo.tp || duo.tv) return;
   const S = DS();
   const name = duo.frame;
   const [rx, ry] = DUO.rects[name];
@@ -945,6 +946,12 @@ function compose() {
     fctx.fillRect(0, 0, SW, SH);
     fctx.globalCompositeOperation = 'source-over';
   }
+  if (st.tint && performance.now() < (st.tintUntil || 0)) {   // care alerts: overheated / tired
+    fctx.globalCompositeOperation = 'source-atop';
+    fctx.fillStyle = st.tint;
+    fctx.fillRect(0, 0, SW, SH);
+    fctx.globalCompositeOperation = 'source-over';
+  }
   if (st.emotion === 'sad' && st.mode !== 'teleport') {
     fctx.globalCompositeOperation = 'source-atop';
     fctx.fillStyle = 'rgba(10,8,30,0.18)';
@@ -1199,6 +1206,7 @@ function update(dt) {
   }
   if (st.mode !== 'dragging' && !st.party) st.rot = lerp(st.rot, 0, 0.2);
   if (st.party) (st.party.kind === 'ride' ? ride.tick(dt) : party.tick(dt));
+  tv.tick(dt);
 
   fx.update(dt);
 }
@@ -1440,6 +1448,7 @@ function draw() {
   }
 
   ride.drawFront(ctx);
+  tv.drawFront(ctx);
   fx.drawFront(ctx, W, H, st.visible ? headScreen() : null);
   positionUi();
 }
@@ -1467,7 +1476,7 @@ function spriteTop() {
 function positionUi() {
   if (!bubble.hidden) {
     const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
-    const an = ride.anchor();                    // on the car: over her head up there
+    const an = ride.anchor() || tv.anchor();     // on the car: over her head up there; TV mode: above the TV
     const ax = an ? an.x : st.pos.x;
     const left = clamp(ax - bw / 2, 8, W - bw - 8);
     const top = clamp((an ? an.top : spriteTop()) - bh - 18, 8, H - bh - 8);
@@ -1486,6 +1495,7 @@ function positionUi() {
 function say(text, { heard = '', seconds = null, label = null, listening = false, thinking = false, buttons = null, cps = 45 } = {}) {
   // don't cover a Yes/No question she is waiting on (talking to her instead counts as "no")
   if (st.confirmId && !buttons) { if (!listening) return; api.confirmAnswer(st.confirmId, false); st.confirmId = null; }
+  if (tv.on() && !buttons) { hideBubble(); tv.say(text, { heard, label, listening, thinking, cps }); return; }
   clearTimeout(bubbleTimer);
   clearInterval(typeTimer);
   $('bubble-label').textContent = label || `${(cfg.characterName || 'CAPRI').toUpperCase()} //`;
@@ -1538,7 +1548,7 @@ function setInteractive(on) {
   api.setIgnoreMouse(!on);
 }
 function refreshInteractive(x, y) {
-  setInteractive(!!st.drag || !typebox.hidden || overCharacter(x, y) || overD(x, y) || overUi(x, y));
+  setInteractive(!!st.drag || tv.dragging() || !typebox.hidden || overCharacter(x, y) || overD(x, y) || overUi(x, y));
 }
 function overCharacter(x, y) {
   if (st.orb) return Math.hypot(x - st.orb.x, y - st.orb.y) < S * 15;
@@ -1680,6 +1690,7 @@ function poke(at) {
 // ------------------------------------------------------------------ typing
 const typeinput = $('typeinput');
 function openTypebox() {
+  if (tv.on()) { tv.focusInput(); return; }      // TV mode: type in its command line
   if (st.party) {                                // High Forever / In Love With Myself: talk to her by voice only
     say(`No typing ${st.party.kind === 'ride' ? 'while we ride' : 'mid-party'}! Talk to me instead (${cfg.hotkeyTalk || 'your talk hotkey'}).`, { seconds: 3.5, cps: 90 });
     return;
@@ -1980,6 +1991,36 @@ function dFramePixels(evenHidden = false) {     // D's opaque pixels on screen, 
     return { x: p.x, y: p.y, s: DS(), c: `rgb(${ddata[i]},${ddata[i + 1]},${ddata[i + 2]})` };
   });
 }
+const tv = initTv({
+  api, st, fx, sfx, META, sheet,
+  lsheet: () => lsheet,
+  cfg: () => cfg,
+  name: () => cfg.characterName,
+  ensureVisible, endChill, hideBubble, setEmotion,
+  closeTypebox: () => { if (!typebox.hidden) closeTypebox(); },
+  converse: (text) => converse(text, false),
+  capriPixels: () => { if (!st.visible) return []; compose(); return framePixels(1).map((p) => ({ ...p, s: S })); },
+  dPixels: () => dFramePixels(true),
+  bodyFrame: () => bodyFrame(),
+  eyes: () => eyeVariant(),
+  mouth: () => mouthVariant(),
+  many: () => performance.now() < (st.manyUntil || 0),
+  tint: () => (performance.now() < (st.tintUntil || 0) ? st.tint : null),
+  setTvHidden: (hide, { hidden = false } = {}) => {
+    if (hide) { st.hideSprite = true; st.chill = null; duo.tv = true; return; }
+    duo.tv = false;
+    if (duo.shown) duo.x = clamp(st.pos.x - duo.cdx * S, 24 * S, W - 24 * S);
+    if (hidden) { st.hideSprite = true; duo.tp = duo.shown; return; }
+    st.hideSprite = false; duo.tp = false;
+  },
+  landed: () => {
+    st.glitchT = 0.12; duo.glitch = 0.35; sfx.thunder();
+    const c = toScreen(AX, CORE_Y);
+    fx.ring(c.x, c.y, { r0: S * 2, r1: S * 30, life: 0.4 });
+    setEmotion('happy', 2.5, false);
+  },
+});
+
 const ride = initRide({
   api, st, fx, sfx, ensureVisible, endChill, hideBubble, say, setEmotion,
   closeNotes: () => notes.close(true),
@@ -2057,6 +2098,13 @@ if (api.onDuo) api.onDuo((on) => {
   uncallD();
 });
 api.onAction(async (name) => {
+  if (name === 'tv_toggle') { tv.toggle(); return; }
+  if (name === 'tv_on') { tv.enter(); return; }
+  if (name === 'tv_off') { tv.exit(); return; }
+  if (tv.on()) {                                 // in the TV: the dances step out of it first, the rest waits
+    if (['high_forever', 'in_love'].includes(name)) await tv.exit();
+    else if (!/_stop$/.test(name)) { say("I'm inside the TV right now~ Turn TV mode off first.", { seconds: 3, cps: 60 }); return; }
+  }
   if (name === 'high_forever') { if (st.party && st.party.kind === 'ride') return; party.start(); return; }
   if (name === 'high_forever_stop') { party.stop(); return; }
   if (name === 'in_love') { if (st.party && st.party.kind !== 'ride') return; ride.start(); return; }
@@ -2126,7 +2174,7 @@ function scheduleIdle() {
 }
 let lastLineAt = performance.now();
 function idleTick() {
-  if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill || st.notesOpen || st.party) return;
+  if (!st.visible || st.mode !== 'idle' || st.drag || !typebox.hidden || st.action || st.chill || st.notesOpen || st.party || st.tv) return;
   const now = performance.now();
   const r = Math.random();
   if (activityReact(now)) return;
@@ -2185,6 +2233,44 @@ if (api.onActivitySay) api.onActivitySay(async ({ text, emotion, category } = {}
   api.activitySpoken(text);
 });
 
+// ------------------------------------------------------------------ care & PC alerts (src/care.js + low battery here)
+// Each alert waits until she's free (not talking, listening, dancing or asking you something), then she says it
+// with a look: overheated for a busy CPU, tired for low battery, worried when the internet drops.
+const CARE_LOOK = {
+  cpu: { tint: 'rgba(255,90,30,0.38)', emote: '!', steam: true }, battery: { tint: 'rgba(40,40,70,0.32)', emote: '?' },
+  disk: { emote: '!' }, offline: { emote: '?' }, online: { emote: 'note' }, water: { emote: 'note' }, limit: { emote: '!' },
+};
+const careQueue = [];
+let careTimer = null;
+function tryCare() {
+  clearTimeout(careTimer); careTimer = null;
+  if (!careQueue.length) return;
+  if (!st.visible || st.party || st.mode !== 'idle' || st.confirmId || !typebox.hidden || st.drag) { careTimer = setTimeout(tryCare, 15000); return; }
+  const l = careQueue.shift();
+  const look = CARE_LOOK[l.kind] || {};
+  if (look.tint) { st.tint = look.tint; st.tintUntil = performance.now() + 9000; }
+  if (look.emote) fx.showEmote(look.emote, 1.4);
+  if (look.steam && !st.tv) {
+    for (let i = 0; i < 6; i++) setTimeout(() => { const h = headScreen(); fx.burst(h.x + rand(-20, 20) * S / 6, h.y - S * 6, 4, { speed: 60, life: 0.9, gravity: -160, color: '#d8d8e8' }); }, i * 450);
+  }
+  st.lastInteraction = performance.now();
+  speak(l.text, l.emotion || 'neutral', { quick: true });
+  if (careQueue.length) careTimer = setTimeout(tryCare, 12000);
+}
+if (api.onCareSay) api.onCareSay((l) => { if (l && l.text) { careQueue.push(l); while (careQueue.length > 3) careQueue.shift(); tryCare(); } });
+// low battery: the browser's battery API (a desktop PC without a battery never warns)
+if (navigator.getBattery) navigator.getBattery().then((b) => {
+  let warned = false;
+  const check = () => {
+    if (b.charging) { warned = false; return; }
+    if (cfg.carePc === false || warned || b.level > 0.2) return;
+    warned = true;
+    careQueue.push({ kind: 'battery', emotion: 'sad', text: `Battery at ${Math.round(b.level * 100)}%... plug in the charger before I faint!` });
+    tryCare();
+  };
+  b.addEventListener('levelchange', check); b.addEventListener('chargingchange', check); check();
+}).catch(() => {});
+
 async function greet() {
   const h = new Date().getHours();
   const time = h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
@@ -2207,10 +2293,11 @@ async function greet() {
 
 // ------------------------------------------------------------------ boot
 requestAnimationFrame(loop);
-window.__test = { scaleNow: () => S, party, ride, notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
+window.__test = { scaleNow: () => S, careQueue, tryCare, party, ride, tv, notes, duoAction, callD, uncallD, pokeD, duo, startChill, endChill, manyEyes, st, fx, say, speak, setEmotion, charge, cast, teleportTo, teleportIn, teleportOut, startWalk, poke, hop, compose, converse, ghost, frameMeta: () => currentFrame };
 window.__ready = true;
 await sleep(500);
 await teleportIn(st.pos.x, { dramatic: true });
 setTimeout(greet, 300);
 if (cfg.dOut) setTimeout(() => callD(true), 1600);
+if (cfg.tvMode) setTimeout(() => tv.enter({ instant: true }), cfg.dOut ? 2600 : 900);   // she was in the TV when she last closed
 scheduleIdle();

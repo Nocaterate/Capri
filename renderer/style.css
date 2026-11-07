@@ -257,3 +257,36 @@ body.test-bg { background: linear-gradient(#3a6fd0 0%, #8fb8ef 55%, #5d9a3a 56%,
 .ps-eq i:nth-child(4) { animation-delay: -0.05s; } .ps-eq i:nth-child(5) { animation-delay: -0.3s; }
 @keyframes ps-eq { from { height: 4px; } to { height: 22px; } }
 @keyframes ps-glow { 50% { box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 0 34px rgba(255, 42, 109, 0.85); } }
+
+/* ---------- TV mode (renderer/tv.js): terminal TV in her colours ---------- */
+.tv { position: fixed; z-index: 40; width: 400px; display: flex; flex-direction: column; gap: 10px; font-family: var(--font); user-select: none; }
+.tv[hidden] { display: none; }
+.tv-log, .tv-feed, .tv-cmd { border: 3px solid var(--c); background: rgba(4, 8, 12, 0.94);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c) 45%, transparent), inset 0 0 14px color-mix(in srgb, var(--c) 12%, transparent); }
+.tv-log { --c: #ff2e78; background: rgba(18, 4, 12, 0.94); padding: 10px 14px; height: 140px; overflow: hidden; font-size: 13px; line-height: 1.45;
+  display: flex; flex-direction: column; justify-content: flex-end; }
+.tv-log .u { color: #ff70a2; word-break: break-word; }
+.tv-log .who { color: #2eff8c; margin-top: 6px; }
+.tv-log .say { color: #ffe0ec; white-space: pre-wrap; word-break: break-word; }
+.tv-log .sys { color: #c79ab4; }
+.tv-feed { --c: #2eff8c; padding: 10px; }
+.tv-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: grab; }
+.tv.dragging .tv-bar { cursor: grabbing; }
+.tv-tag { background: var(--c); color: #000; font-weight: 700; font-size: 12px; padding: 5px 12px; letter-spacing: 1px; white-space: nowrap; }
+.tv-status { margin-left: auto; border: 2px solid var(--c); color: #ff70a2; font-size: 10px; padding: 3px 6px; font-weight: 700; white-space: nowrap; }
+.tv-x { background: transparent; border: 2px solid #ff2e78; color: #ff70a2; font: 700 11px var(--font); padding: 2px 6px; cursor: pointer; }
+.tv-x:hover { background: rgba(255, 46, 120, 0.2); }
+.tv-screen { position: relative; border: 3px solid var(--c); height: 228px; overflow: hidden; cursor: pointer;
+  background: radial-gradient(circle at 50% 60%, #3a1430, #0c0410 72%); }
+.tv-screen canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.tv-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 2px, transparent 2px 4px); }
+.tv-cmd { --c: #ff2e78; display: flex; gap: 10px; align-items: center; padding: 8px 10px; }
+.tv-pr { border: 2px solid var(--c); color: #fff; font-weight: 700; padding: 1px 5px; font-size: 12px; }
+.tv-cmd input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #ffe0ec; font: 13px var(--font); caret-color: #ff70a2; }
+.tv-cmd input::placeholder { color: #c06a8e; }
+.tv.dark .tv-screen canvas { opacity: 0; }
+.tv.on-anim .tv-screen canvas { animation: tv-on 420ms ease-out; }
+@keyframes tv-on { 0% { transform: scale(0.6, 0.02); filter: brightness(4); } 60% { transform: scale(1, 1.05); filter: brightness(2); } 100% { transform: none; filter: none; } }
+.tv.off-anim .tv-screen canvas { animation: tv-off 330ms ease-in forwards; }
+@keyframes tv-off { 0% { transform: none; } 55% { transform: scale(1, 0.02); filter: brightness(4); } 100% { transform: scale(0, 0.02); filter: brightness(4); } }
