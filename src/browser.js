@@ -44,7 +44,7 @@ function launch(key, url) {
   });
 }
 
-function createBrowserLink({ port = 43824, log = () => {}, isAllowed, allow, ask, onState = () => {} }) {
+function createBrowserLink({ port = 43824, log = () => {}, isAllowed, allow, ask, onState = () => {}, getPreferred = () => '' }) {
   let wss = null, seq = 0, defaultKey = '';
   const conns = new Map();          // ws -> { extId, key, name, version, since, allowed, lastUsed }
   const pending = new Map();
@@ -104,12 +104,14 @@ function createBrowserLink({ port = 43824, log = () => {}, isAllowed, allow, ask
     wss = null; conns.clear();
   }
   const linked = () => [...conns.entries()].filter(([ws, c]) => c.allowed && c.key && ws.readyState === 1);
-  // which linked browser to use: the one asked for, else the default browser, else the one used last
+  // the browser Capri uses when none is named: the one picked in Settings, else Windows' default
+  const mainKey = () => browserKey(getPreferred()) || defaultKey;
+  // which linked browser to use: the one asked for, else Capri's main browser, else the one used last
   function pick(want) {
     const list = linked();
     const k = browserKey(want);
     if (k) return list.find(([, c]) => c.key === k) || null;
-    return list.find(([, c]) => c.key === defaultKey) || list.sort((a, b) => b[1].lastUsed - a[1].lastUsed)[0] || null;
+    return list.find(([, c]) => c.key === mainKey()) || list.sort((a, b) => b[1].lastUsed - a[1].lastUsed)[0] || null;
   }
   function call(cmd, args = {}, { browser, timeout = 25000 } = {}) {
     const hit = pick(browser);
@@ -124,9 +126,11 @@ function createBrowserLink({ port = 43824, log = () => {}, isAllowed, allow, ask
     }).then((r) => ({ ...(r || {}), browser: c.name }));
   }
   function status() {
-    return { listening: !!wss, defaultBrowser: NAMES[defaultKey] || '', browsers: linked().map(([, c]) => ({ name: c.name, version: c.version })) };
+    const waiting = [...conns.values()].filter((c) => !c.allowed && c.key).map((c) => c.name);
+    return { listening: !!wss, defaultBrowser: NAMES[mainKey()] || '', windowsDefault: NAMES[defaultKey] || '', chosen: !!browserKey(getPreferred()),
+      browsers: linked().map(([, c]) => ({ name: c.name, version: c.version })), waiting };
   }
-  return { start, stop, call, status, launch, browserKey, names: NAMES, defaultKey: () => defaultKey };
+  return { start, stop, call, status, launch, browserKey, names: NAMES, defaultKey: () => defaultKey, mainKey };
 }
 
 // ---------------------------------------------------------------- turning results into text for the AI

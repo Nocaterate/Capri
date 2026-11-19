@@ -18,6 +18,9 @@ const THEME = {
 };
 const SHELL_LABEL = { powershell: 'POWERSHELL', cmd: 'CMD' };
 let NAME = 'Capri';
+// inside the Hub (a view in the Hub window): no window buttons, a POP OUT button, and closing the last tab opens a fresh one
+const EMBED = new URLSearchParams(location.search).get('embed') === '1';
+if (EMBED) document.body.classList.add('embed');
 
 // ---------------------------------------------------------------- tabs
 const tabs = [];
@@ -25,8 +28,8 @@ let active = null;
 const byId = new Map();
 
 const MAX_TABS = 12;                             // each tab is a whole shell: keep the PC (and the bar) sane
-async function newTab(shell = 'powershell') {
-  if (tabs.length >= MAX_TABS) { flashLimit(); return null; }
+async function newTab(shell = 'powershell', adopted = null) {
+  if (tabs.length >= MAX_TABS && !adopted) { flashLimit(); return null; }
   const div = document.createElement('div');
   div.className = 'term';
   el.terms.appendChild(div);
@@ -62,6 +65,14 @@ async function newTab(shell = 'powershell') {
     else navigator.clipboard.readText().then((t) => t && term.paste(t)).catch(() => {});
   });
   fit.fit();
+  if (adopted) {
+    // a running tab moved here from the Hub: show its screen so far and keep talking to the same shell
+    tab.id = adopted.id;
+    byId.set(adopted.id, tab);
+    if (adopted.buf) term.write(adopted.buf);
+    T.resize(tab.id, term.cols, term.rows);
+    return tab;
+  }
   const r = await T.spawn(shell, term.cols, term.rows);
   if (!r || r.error) {
     term.write(`\x1b[31mCouldn't start ${SHELL_LABEL[shell] || shell}: ${(r && r.error) || 'unknown error'}\x1b[0m\r\n`);
@@ -84,7 +95,7 @@ function closeTab(tab) {
   byId.delete(tab.id);
   tab.term.dispose(); tab.div.remove(); tab.btn.remove();
   tabs.splice(tabs.indexOf(tab), 1);
-  if (!tabs.length) { T.windowCtl('close'); return; }
+  if (!tabs.length) { if (EMBED) newTab('powershell'); else T.windowCtl('close'); return; }
   labelTabs();
   if (active === tab) activate(tabs[tabs.length - 1]);
 }
@@ -145,6 +156,25 @@ T.onExit(({ id }) => {
   t.btn.style.opacity = '0.5';
 });
 T.onNewTab((shell) => newTab(shell));
+// Pop out: these tabs went to the terminal window (their shells keep running there)
+T.onReleased((ids) => {
+  for (const id of ids) {
+    const tab = byId.get(id);
+    if (!tab) continue;
+    byId.delete(id);
+    tab.term.dispose(); tab.div.remove(); tab.btn.remove();
+    tabs.splice(tabs.indexOf(tab), 1);
+  }
+  labelTabs();
+  if (!tabs.length) newTab('powershell');
+  else if (!tabs.includes(active)) activate(tabs[tabs.length - 1]);
+});
+async function adoptTabs() {
+  const list = await T.adopt().catch(() => []);
+  for (const a of list) await newTab(a.shell, a);
+  return list.length;
+}
+T.onAdopt(() => adoptTabs());
 
 // what you type: tracked just enough to know when the line is empty (so "/" can open her panel)
 function onInput(tab, d) {
@@ -379,6 +409,7 @@ const face = (() => {
 })();
 
 // ---------------------------------------------------------------- window
+$('popout').addEventListener('click', () => T.windowCtl('popout'));
 $('min').addEventListener('click', () => T.windowCtl('min'));
 $('max').addEventListener('click', () => T.windowCtl('max'));
 $('close').addEventListener('click', () => T.windowCtl('close'));
@@ -396,7 +427,9 @@ document.addEventListener('keydown', (e) => {
   try { const info = await T.info(); if (info && info.name) NAME = info.name; } catch { /* default */ }
   $('brand').textContent = `${NAME.toUpperCase()}.SH`;
   document.title = `${NAME} Terminal`;
-  const shell = new URLSearchParams(location.search).get('shell') || 'powershell';
+  const q = new URLSearchParams(location.search);
+  const shell = q.get('shell') || 'powershell';
+  if (q.get('adopt') === '1' && await adoptTabs()) return;
   await newTab(shell);
 })();
 

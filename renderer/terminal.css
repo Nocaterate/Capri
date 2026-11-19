@@ -79,3 +79,11 @@ button { font: 700 11px var(--font); letter-spacing: .08em; cursor: pointer; whi
 #ask::placeholder { color: #8a5b74; }
 #ask-form .keys { color: #8a5b74; font-size: 11px; white-space: nowrap; }
 #ask-form .keys b { color: var(--dim); font-weight: 400; }
+
+/* inside Capri Hub: the Hub is the window, so no window buttons or drag, a slimmer frame, and POP OUT */
+#popout { display: none; border: 2px solid #55283f; color: var(--dim); background: transparent; padding: 3px 9px; }
+#popout:hover { border-color: var(--pink2); color: var(--ink); }
+body.embed #popout { display: inline-block; }
+body.embed #bar { -webkit-app-region: no-drag; border-width: 2px; }
+body.embed #frame { padding: 0; }
+body.embed .win, body.embed #brand, body.embed #link { display: none; }

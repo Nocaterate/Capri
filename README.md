@@ -56,10 +56,10 @@ Capri is an agent: the AI decides when to use these tools, so just ask in normal
 Anything that changes something (clicks, typing, files, commands, risky browser actions) asks you first with a **Yes, do it / No / Always allow** bubble. She can also do all of this from **Discord** (only for you, the owner) and from **Hermes Agent**, which adds long-term memory, web research and chat apps like Telegram ("play Espresso on my PC" from your phone). Setup for both is below.
 
 ### Privacy
-Your keys, tokens, settings, chat memory, notes, to-dos, AI usage counts and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `usage.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version, and, with PC alerts on, a check of Windows' own internet-test address once a minute). The Browser link extension only talks to Capri on your own PC. If you turn on [Make her more alive](#make-her-more-alive-she-notices-what-youre-doing) with "Let her AI write what she says", the name and title of the app in front (like a song or movie name) goes to your AI service so it can write her line. Asking her with `/capri` in Capri Terminal sends the last lines on that terminal screen. Never share your `config.json` or post your keys in issues.
+Your keys, tokens, settings, chat memory, notes, to-dos, AI usage counts, screen time and logs are stored only on your PC in `%APPDATA%\Capri` (`config.json`, `history.json`, `notes.json`, `usage.json`, `screentime.json`, `capri.log`). Nothing is sent anywhere except to the AI/voice/music services you set up yourself (plus one anonymous request to GitHub at startup to see if there's a newer version, and, with PC alerts on, a check of Windows' own internet-test address once a minute). The Browser link extension only talks to Capri on your own PC. If you turn on [Make her more alive](#make-her-more-alive-she-notices-what-youre-doing) with "Let her AI write what she says", the name and title of the app in front (like a song or movie name) goes to your AI service so it can write her line. Asking her with `/capri` in Capri Terminal sends the last lines on that terminal screen. The Hub's music visualizer listens to your PC's sound only to move its bars; nothing is recorded or sent. Never share your `config.json` or post your keys in issues.
 
 ### Updating / uninstalling
-When a new version is out, Capri tells you once with a Windows notification, and her right-click menu shows **Update to vX…** (it opens the release page). How to update depends on how you installed her; your settings, notes and keys stay in `%APPDATA%\Capri` either way.
+When a new version is out, Capri tells you once with a Windows notification, and the Hub's title bar shows **⚡ vX is out** (it opens the release page). How to update depends on how you installed her; your settings, notes and keys stay in `%APPDATA%\Capri` either way.
 - **Portable zip:** quit Capri from the tray icon, download the new `Capri-win64.zip` from [Releases](https://github.com/Nocaterate/Capri/releases/latest), and extract it over the old folder (or into a new one).
 - **`git clone`:** quit Capri, then in the Capri folder run `git pull` followed by `npm install` (only needed when an update adds new packages, but it's safe to always run), and start her again with `start.bat`.
 - **"Download ZIP" from the Code button:** download it again and extract it over the old folder. Keep the old `node_modules` folder, or let `start.bat` reinstall it.
@@ -74,14 +74,15 @@ Right-click Capri → **Settings…**. The presets at the top (Groq, Gemini, Cla
 |---|---|
 | Talk by voice | `Ctrl + Alt + Space`, then speak. Recording stops when you go quiet. |
 | Type a message | `Ctrl + Alt + T`, or double-click her |
-| Hide / summon (teleport) | `Ctrl + Alt + H`, or click the tray icon |
+| Hide / summon (teleport) | `Ctrl + Alt + H`, or right-click her → **Hide** |
+| Capri Hub (dashboard, chat, tasks, apps, stats, screen time) | Click the tray icon, `Ctrl + Alt + W`, or `/hub` |
 | Move her | Drag her: she turns into her red electric form and snaps back with a strike where you drop her |
 | Poke | Click once. Poke her too much and she gets annoyed. |
 | Resize | Hover over her and scroll |
-| Notes & To-do list | Right-click her (or the tray icon) → **Notes & To-do list** |
-| Menu (Actions incl. High Forever and In Love With Myself, Call D, Notes, Sit on my window, Settings) | Right-click her |
+| Notes & To-do list | Hub → **Task**, or `/notes` |
+| Menu (Actions incl. High Forever, In Love With Myself and TV mode, Call D, Settings, activity log, Clear chat memory, Hide, Restart, Quit) | Right-click her (or the tray icon) |
 | Instant commands | Type `/` in her typing box (or the TV command line): see **Commands** below |
-| Capri Terminal | `/powershell`, `/cmd`, or right-click her → Terminal |
+| Capri Terminal | `/powershell`, `/cmd`, or Hub → **Terminal** |
 
 Things you can say:
 - "Open YouTube and search for lofi music"
@@ -91,20 +92,34 @@ Things you can say:
 - "Remind me in 10 minutes to take the laundry out"
 - "Remind me at 8 pm to call mom" / "What's on my to-do list?"
 
+## Capri Hub
+One window with everything: click the **tray icon**, press **Ctrl + Alt + W** (change it in Settings → General), or type `/hub` (`/hub stats`, `/hub task`… opens a page). The menu on the left:
+
+- **Dashboard**: a neon clock (week number, day of the year, how much of today is gone) with **Now playing** under it (the Spotify song with its cover, a visualizer that moves with your PC's sound, and ⏮ ⏯ ⏭; when nothing plays it's "dead air" and **Ask Capri ♪** asks her to put something on), **Favorites** with two tabs, **APPS** and **WEB** (the first 8 of each from your Favorites page; **manage ›** goes there), a **calendar** (days with to-dos get a pink dot; click a day to see its to-dos and add one for that day) and a small chat with Capri.
+- **Chat**: talk to her by text. Same memory as talking to her on the desktop; **Clear memory** wipes it.
+- **Task**: your to-do list (with an optional day, time and reminder) and notes.
+- **Apps**: every app in your Start menu with its real icon. Click to open; ☆ adds it to Favorites.
+- **Stats**: a small Task Manager: CPU, memory, GPU (NVIDIA cards, through `nvidia-smi`), network speed, the busiest programs (**END** stops one after you confirm; Windows' own processes and Capri can't be ended here) and every disk with its free space. **Empty Recycle Bin** and **Clean temp files** (only temp files older than a day) ask first.
+- **Screen time**: how long each app was in front today and the last 7 days. Capri counts it herself while she runs (only app names are saved, never window titles; time away from the PC doesn't count unless the app is full screen). Untick **counting** to stop.
+- **Favorites**: your favorite apps and websites (the first 8 of each show on the Dashboard). Add apps with **+ Add app** (an exe or shortcut), by dropping a file on the page, or with ☆ on the Apps page; add a website with its name and link (its own icon is fetched once from the site). Rename them, reorder them, or click the icon to pick your own picture. Capri opens these first when you say "open <name>".
+- **Status**: is everything alive? Hermes (her brain), the fallback brain, the Discord bot, Spotify, the browser link, the internet and her PC helper, each with a fix button (restart Hermes, restart the bot, open the extension folder, restart the helper), plus what happened recently. The same lights sit in the Hub's title bar; click one for details. A yellow or blinking pink dot on **Status** means something needs a look.
+- **Terminal**: Capri Terminal right inside the Hub: PowerShell / CMD tabs, ⚡ CAPRI and `/capri` work the same. Your tabs keep running while you look at other Hub pages. **POP OUT ↗** moves them (still running, with what's on screen) to their own Capri Terminal window. Closing the Hub ends the tabs still in it.
+- **Settings ↗** opens the normal Settings window.
+
+To get the Hub every time your PC starts: Settings → General → tick **Start Capri when Windows starts** and **…and open Capri Hub too**. It also opens when you pick **Restart** in her menu. And whenever Capri restarts while the Hub is open (Restart or an update), the Hub comes back on the same page.
+
 ## Notes & To-do list
-Capri keeps a notes pad and a to-do list for you in a hologram panel she projects next to herself.
+Capri keeps a notes pad and a to-do list for you: **Hub → Task** (or `/notes`). Days with to-dos show on the Dashboard calendar.
 
-**Open it:** right-click Capri (or the tray icon) → **Notes & To-do list**. She zaps to the side of the screen with more room and the panel scans in beside her. Close it with **✕**, **Esc**, or the same menu item.
+**Notes**
+- Click **+ New note**, give it a title and write anything. It saves by itself.
+- Click a note on the left to open it; **delete note** removes it (it asks first).
 
-**Notes tab**
-- Click **+ New note**, give it a title and write anything. It saves by itself (the green **● Saved** light).
-- Click a note on the left to open it; **Delete note** removes it (it asks first).
-
-**To-do list tab**
-- Type the to-do (max 50 letters), optionally pick a **time**, and click **Add**.
-- **Remind me** (the bell): when it glows, Capri reminds you at that time. She says it out loud and Windows shows a notification. If the time has already passed today, she reminds you tomorrow. If Capri was closed at that time, she reminds you as soon as she starts.
+**To-do**
+- Type the to-do (max 50 letters), optionally pick a **day** and a **time**, and click **Add**. With no day, it's an "anytime" to-do.
+- **Remind me** (the ◆ bell): when it glows, Capri reminds you at that time. She says it out loud and Windows shows a notification (click it to open Task). Without a day, a time that has already passed today means tomorrow. If Capri was closed at that time, she reminds you as soon as she starts.
 - After a reminder fires, its bell turns off by itself, so a glowing bell always means "a reminder is still coming".
-- In the table you can change a time, switch a row's bell on or off, or delete a row (it asks first).
+- Tick the box when it's done (it disappears).
 
 **Or just ask her** (by voice, text, Discord as the owner, or through Hermes):
 
@@ -112,6 +127,7 @@ Capri keeps a notes pad and a to-do list for you in a hologram panel she project
 |---|---|
 | "Add buy milk to my to-do list" | Adds a to-do with no time |
 | "Remind me at 8 pm to call mom" | Adds "call mom" at 20:00 with the reminder on |
+| "Dentist on Friday at 4 pm" | Adds it on that day (it shows on the calendar) with a reminder |
 | "What's on my to-do list?" | She reads the list |
 | "I finished call mom" / "Delete buy milk" | Removes it |
 | "Write a note called Ideas: pixel hoodie" | Makes a new note, or adds a line if "Ideas" already exists |
@@ -126,7 +142,9 @@ Ask Capri to use your PC: *"open Notepad and write a shopping list"*, *"what's i
 - She doesn't see pictures (your AI model is text-only), so games and drawing apps can look empty to her; tell her where to click by position in that case.
 
 ## Browser link (optional)
-With the small **Capri Browser Link** extension, Capri can use your real browser, with your logins: open and switch tabs, read a page for you, click links and buttons, type and fill in forms, scroll, and play/pause/mute videos. It works in Chrome, Edge, Brave, Opera, Vivaldi and Firefox, and several browsers can be linked at once. She uses the one you name ("in Edge"), otherwise your default browser.
+With the small **Capri Browser Link** extension, Capri can use your real browser, with your logins: open and switch tabs, read a page for you, click links and buttons, type and fill in forms, scroll, and play/pause/mute videos. It works in Chrome, Edge, Brave, Opera, Vivaldi and Firefox, and several browsers can be linked at once. She uses the one you name ("in Edge"), otherwise **Capri's browser** (Settings → PC & browser → Browser; Windows' default browser unless you pick one there). Pages she opens for you (websites, searches, website favorites) open there too.
+
+Load the extension unpacked; don't use Chrome's **Pack extension** on it (that gives it a new ID, so Capri has to ask you again, and leaves `.crx`/`.pem` files in her folder).
 
 Without the extension she can still *open* pages (in the browser you name), just not read or click on them.
 
@@ -199,7 +217,8 @@ Type `/` in her typing box and a list of commands pops up: **↑ ↓** to pick, 
 |---|---|
 | `/timer 10m tea` | a timer / reminder (`90s`, `25m`, `1h30m`) |
 | `/todo 7pm call mom`, `/todo buy milk` | add a to-do (a time turns its reminder on); `/todos` reads the list, `/done milk` ticks one off |
-| `/note text` | adds a line to the "Quick notes" note; `/notes` opens the panel |
+| `/note text` | adds a line to the "Quick notes" note; `/notes` opens Task in the Hub |
+| `/hub [chat \| task \| apps \| stats \| time \| mine]` | opens Capri Hub (on that page) |
 | `/play espresso`, `/pause`, `/next`, `/prev`, `/vol 30`, `/vol up`, `/mute` | music and volume |
 | `/open discord`, `/close chrome` | apps |
 | `/google …`, `/yt …`, `/web github.com` | the web |
@@ -369,7 +388,9 @@ A GTX 1650 (4 GB) is enough for a small model:
 - `src/browser.js`: the local link to the browser extension (WebSocket on 127.0.0.1:43824)
 - `browser-extension/`, `browser-extension-firefox/`: the Capri Browser Link extension (Chromium browsers / Firefox)
 - `renderer/app.js`: the character, animations, interaction and voice flow
-- `renderer/notes.js`: the Notes & To-do hologram panel (reminders are fired by `main.js`)
+- `src/hub.js`, `hub-preload.js`, `renderer/hub.html/.css/.js`: Capri Hub (dashboard, chat, tasks, apps, stats, screen time, My Apps)
+- `src/screentime.js`, `src/stats.js`, `src/icons.js` + `src/icons.ps1`: the Hub's screen time, PC stats and real app icons
+- `renderer/notes.js`: the older Notes & To-do hologram panel (reminders are fired by `main.js`)
 - `renderer/party.js`, `renderer/beats.js`: High Forever party mode and its beat detection
 - `renderer/ride.js`: In Love With Myself (the car ride with D)
 - `src/pc.js`, `src/pc-helper.ps1`: computer control (Windows UI Automation, mouse/keyboard, files, commands)

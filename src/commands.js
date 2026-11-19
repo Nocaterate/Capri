@@ -10,7 +10,8 @@ const COMMANDS = [
   ['todos', '', 'read the to-do list'],
   ['done', 'text', 'tick a to-do off'],
   ['note', 'text', 'save a quick note'],
-  ['notes', '', 'open Notes & To-do'],
+  ['notes', '', 'open Task (notes & to-do) in the Hub'],
+  ['hub', '[chat | task | apps | stats | time | favorites | status | terminal]', 'open Capri Hub'],
   ['play', 'song or artist', 'play it on Spotify'],
   ['pause', '', 'pause / resume'],
   ['next', '', 'next song'],
@@ -41,7 +42,7 @@ const ALIASES = { h: 'help', '?': 'help', t: 'timer', remind: 'timer', reminder:
   p: 'play', resume: 'pause', skip: 'next', previous: 'prev', back: 'prev', volume: 'vol', v: 'vol', o: 'open', start: 'open',
   g: 'google', search: 'google', youtube: 'yt', url: 'web', go: 'web', site: 'web', hf: 'party', dance: 'party',
   inlove: 'ride', car: 'ride', window: 'walker', walk: 'walker', lounge: 'chill', calld: 'd', power: 'zap', charge: 'zap', tp: 'teleport',
-  config: 'settings', ps: 'powershell', pwsh: 'powershell', terminal: 'powershell', term: 'powershell', shell: 'powershell', prompt: 'cmd', mic: 'voice', forget: 'clear', check: 'done', finish: 'done' };
+  config: 'settings', dashboard: 'hub', widgets: 'hub', home: 'hub', task: 'notes', tasks: 'notes', ps: 'powershell', pwsh: 'powershell', terminal: 'powershell', term: 'powershell', shell: 'powershell', prompt: 'cmd', mic: 'voice', forget: 'clear', check: 'done', finish: 'done' };
 
 // "10m", "90s", "1h30m", "1.5h", "10" (minutes), "10 min", "2 hours" -> minutes (null if none)
 function parseDuration(s) {
@@ -73,7 +74,7 @@ function resolve(word) {
   return w && starts.length === 1 ? starts[0].name : null;
 }
 
-// ctx: { actions, getConfig, setConfig, send, openSettings, clearHistory, partyKind() }
+// ctx: { actions, getConfig, setConfig, send, openSettings, clearHistory, openTerminal(shell), openHub(page), partyKind() }
 async function runCommand(input, ctx) {
   const raw = String(input || '').trim().replace(/^\//, '');
   const [word = '', ...restWords] = raw.split(/\s+/);
@@ -106,7 +107,12 @@ async function runCommand(input, ctx) {
     case 'todos': return ok(await a.list_todos(), 'relaxed');
     case 'done': return rest ? ok(await a.remove_todo({ text: rest })) : need('which to-do');
     case 'note': return rest ? ok(await a.add_note({ title: 'Quick notes', text: rest })) : need('the note');
-    case 'notes': ctx.send('notes-toggle'); return ok('Notes & To-do~');
+    case 'notes': ctx.openHub('task'); return ok('Your tasks~');
+    case 'hub': {
+      const page = { chat: 'chat', task: 'task', tasks: 'task', notes: 'task', todo: 'task', apps: 'apps', stats: 'stats', pc: 'stats', time: 'time', screentime: 'time', mine: 'mine', myapps: 'mine', favorites: 'mine', status: 'status', term: 'term', terminal: 'term' }[rest.toLowerCase().replace(/\s+/g, '')] || 'dash';
+      ctx.openHub(page);
+      return ok('Opening the Hub~');
+    }
     case 'play': return rest ? ok(await a.spotify_play({ query: rest, type: 'track' })) : ok(await a.spotify_control({ action: 'resume' }));
     case 'pause': return ok(await a.media_control({ action: 'play_pause' }));
     case 'next': return ok(await a.spotify_control({ action: 'next' }));

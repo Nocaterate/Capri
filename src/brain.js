@@ -340,6 +340,7 @@ const TOOLS = [
         properties: {
           text: { type: 'string', description: 'The to-do, short (max 50 letters).' },
           time: { type: 'string', description: 'Optional clock time in 24-hour HH:MM, e.g. "20:00". Work it out from the current time for things like "in 2 hours".' },
+          date: { type: 'string', description: 'Optional day in YYYY-MM-DD for a to-do on a specific day ("on Friday", "next week Monday"), shown on the Hub calendar. Leave it out for today/the next time the clock reaches the time.' },
           remind: { type: 'boolean', description: 'Remind at that time. Default true when a time is given.' },
         },
         required: ['text'],

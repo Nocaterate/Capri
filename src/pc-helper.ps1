@@ -262,7 +262,8 @@ function Handle($q) {
       $p = Get-Process -Id $procId -ErrorAction SilentlyContinue
       $exe = ''; try { $exe = [string]$p.Path } catch { }
       $scr = [CapriFg]::Screen($h)
-      return @{ title = [CapriFg]::Title($h); process = [string]$p.ProcessName; path = $exe; primary = $scr[0]; fullscreen = $scr[1]; idle = $idle }
+      $desc = ''; try { $desc = [string]$p.Description } catch { }
+      return @{ title = [CapriFg]::Title($h); process = [string]$p.ProcessName; path = $exe; desc = $desc; primary = $scr[0]; fullscreen = $scr[1]; idle = $idle }
     }
     'fgrect' {
       # very cheap (no UI Automation, no process lookup): polled a few times a second while "sit on my window" is on
@@ -272,6 +273,20 @@ function Handle($q) {
       [uint32]$procId = 0; [void][CapriRect]::GetWindowThreadProcessId($h, [ref]$procId)
       if ([int]$procId -eq $capriPid) { return @{ self = $true } }
       return @{ hwnd = [int64]$h; rect = [CapriRect]::Rect($h); cls = [CapriRect]::Cls($h); iconic = [CapriRect]::IsIconic($h); zoomed = [CapriRect]::IsZoomed($h); primary = [CapriRect]::OnPrimary($h) }
+    }
+    'stats' {
+      # the Hub's Stats page: every process (name, id, CPU seconds so far, memory), network byte counters, fixed disks
+      $procs = @(Get-Process | ForEach-Object {
+        $c = 0; try { $c = [math]::Round($_.TotalProcessorTime.TotalSeconds, 2) } catch { }
+        @{ n = [string]$_.ProcessName; id = $_.Id; c = $c; m = [int64]$_.WorkingSet64 } })
+      [int64]$rx = 0; [int64]$tx = 0
+      foreach ($i in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+        if ($i.OperationalStatus -ne 'Up' -or $i.NetworkInterfaceType -eq 'Loopback') { continue }
+        try { $s = $i.GetIPStatistics(); $rx += $s.BytesReceived; $tx += $s.BytesSent } catch { }
+      }
+      $disks = @([System.IO.DriveInfo]::GetDrives() | Where-Object { $_.IsReady -and $_.DriveType -eq 'Fixed' } | ForEach-Object {
+        @{ name = $_.Name; label = [string]$_.VolumeLabel; total = [int64]$_.TotalSize; free = [int64]$_.AvailableFreeSpace } })
+      return @{ procs = $procs; rx = $rx; tx = $tx; disks = $disks }
     }
     'ping' { return @{ pong = $true } }
     default { throw "Unknown command $($q.cmd)" }

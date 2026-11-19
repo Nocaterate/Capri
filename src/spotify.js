@@ -241,6 +241,40 @@ async function nowPlaying() {
   return rest.length ? `Playing "${rest.join(' - ')}" by ${artist}.` : `Spotify shows: ${t}.`;
 }
 
+// what's playing, as data (the Hub's Now Playing card): from the Spotify API when connected, else the app's window title
+let trackCache = null, trackAt = 0;
+async function track() {
+  if (trackCache && Date.now() - trackAt < 2500) return trackCache;
+  let out = { source: 'none', playing: false };
+  if (connected()) {
+    try {
+      const cur = await api('GET', '/me/player/currently-playing?additional_types=episode');
+      if (cur && cur.item) {
+        const it = cur.item;
+        const imgs = (it.album && it.album.images) || (it.images) || (it.show && it.show.images) || [];
+        const img = imgs.slice().sort((a, b) => Math.abs((a.width || 300) - 160) - Math.abs((b.width || 300) - 160))[0];
+        out = {
+          source: 'api', playing: !!cur.is_playing, name: it.name || '',
+          artists: it.artists ? it.artists.map((a) => a.name).join(', ') : it.show ? it.show.name : '',
+          album: it.album ? it.album.name : '', art: img && /^https:\/\//.test(img.url) ? img.url : '',
+          progressMs: cur.progress_ms || 0, durationMs: it.duration_ms || 0,
+          url: it.external_urls && it.external_urls.spotify ? it.external_urls.spotify : '',
+        };
+      } else out = { source: 'api', playing: false };
+    } catch (e) { if (e.status === 401) out = { source: 'none', playing: false, error: explain(e) }; }
+  }
+  if (out.source !== 'api') {
+    const t = await windowTitle();
+    if (t && !/^spotify( free| premium)?$/i.test(t)) {
+      const [artist, ...rest] = t.split(' - ');
+      out = { source: 'window', playing: true, name: rest.length ? rest.join(' - ') : t, artists: rest.length ? artist : '' };
+    } else if (t != null && out.source === 'none') out = { source: 'window', playing: false, open: !!t };
+  }
+  trackCache = out; trackAt = Date.now();
+  return out;
+}
+function forgetTrack() { trackCache = null; }
+
 async function control({ action, volume_percent } = {}, mediaKey) {
   const keyFor = { pause: 'play_pause', resume: 'play_pause', next: 'next', previous: 'previous' };
   if (connected()) {
@@ -280,4 +314,4 @@ async function queue({ query } = {}) {
   }
 }
 
-module.exports = { init, connect, disconnect, connected, play, nowPlaying, control, queue, REDIRECT_URI };
+module.exports = { init, connect, disconnect, connected, play, nowPlaying, track, forgetTrack, control, queue, REDIRECT_URI };

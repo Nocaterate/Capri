@@ -20,3 +20,8 @@ history.json
 dist/
 __pycache__/
 .claude/
+
+# packed extension and its private signing key (never publish)
+*.pem
+*.crx
+*.key

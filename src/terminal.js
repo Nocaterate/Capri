@@ -26,10 +26,13 @@ const DANGER = new RegExp([
   String.raw`\bgit\s+(push\b.*(-f\b|--force)|reset\s+--hard|clean\s+-\w*f)`,
 ].join('|'), 'i');
 
-function createTerminal({ BrowserWindow, ipcMain, getConfig, setConfig, log, brain, rootDir, iconPath }) {
+function createTerminal({ BrowserWindow, ipcMain, getConfig, setConfig, log, brain, rootDir, iconPath, WebContentsView }) {
   let win = null, pty = null, ptyError = '';
-  const tabs = new Map();                        // id -> { proc, shell }
+  // the terminal page lives in its own window and/or inside the Hub (a view in the Hub window): each tab belongs to one
+  const tabs = new Map();                        // id -> { proc, shell, wc, buf }
   let seq = 0;
+  let embed = null, embedHost = null;            // WebContentsView inside the Hub, and the Hub window
+  let adopt = [];                                // tab ids waiting for the window (Pop out from the Hub)
 
   function loadPty() {
     if (pty || ptyError) return pty;
@@ -37,33 +40,60 @@ function createTerminal({ BrowserWindow, ipcMain, getConfig, setConfig, log, bra
     return pty;
   }
 
-  function open(shell = 'powershell') {
+  function open(shell = 'powershell', { adoptIds = null } = {}) {
     shell = SHELLS[shell] ? shell : 'powershell';
     if (win && !win.isDestroyed()) {
       if (win.isMinimized()) win.restore();
       win.show(); win.focus();
-      win.webContents.send('term-new-tab', shell);
+      if (adoptIds) { adopt = adoptIds; win.webContents.send('term-adopt'); } else win.webContents.send('term-new-tab', shell);
       return;
     }
+    adopt = adoptIds || [];
     const b = getConfig().termBounds || {};
     win = new BrowserWindow({
       width: b.width || 940, height: b.height || 600, x: b.x, y: b.y, minWidth: 560, minHeight: 360,
       frame: false, backgroundColor: '#04080c', title: 'Capri Terminal', icon: iconPath, show: false,
       webPreferences: { preload: path.join(rootDir, 'terminal-preload.js'), contextIsolation: true, nodeIntegration: false },
     });
-    win.loadFile(path.join(rootDir, 'renderer', 'terminal.html'), { query: { shell } });
+    win.loadFile(path.join(rootDir, 'renderer', 'terminal.html'), { query: adoptIds ? { shell, adopt: '1' } : { shell } });
     win.once('ready-to-show', () => win.show());
     const saveBounds = () => { if (win && !win.isDestroyed() && !win.isMaximized() && !win.isMinimized()) setConfig({ termBounds: win.getBounds() }); };
     let bt = null;
     win.on('resize', () => { clearTimeout(bt); bt = setTimeout(saveBounds, 600); });
     win.on('move', () => { clearTimeout(bt); bt = setTimeout(saveBounds, 600); });
-    win.on('closed', () => { for (const id of [...tabs.keys()]) kill(id); win = null; });
+    const wc = win.webContents;
+    win.on('closed', () => { killOf(wc); win = null; });
     log('terminal: opened', shell);
   }
 
-  const fromTerm = (e) => win && !win.isDestroyed() && e.sender === win.webContents;
+  // inside the Hub: one view, kept while the Hub is open (tabs keep running when you switch Hub pages)
+  function embedIn(host, { shell = 'powershell' } = {}) {
+    if (embed && embedHost === host && !embed.webContents.isDestroyed()) return embed;
+    if (!WebContentsView) return null;
+    embedHost = host;
+    embed = new WebContentsView({ webPreferences: { preload: path.join(rootDir, 'terminal-preload.js'), contextIsolation: true, nodeIntegration: false } });
+    embed.setBackgroundColor('#04080c');
+    host.contentView.addChildView(embed);
+    embed.setVisible(false);
+    embed.webContents.loadFile(path.join(rootDir, 'renderer', 'terminal.html'), { query: { shell, embed: '1' } });
+    const wc = embed.webContents;
+    host.on('closed', () => { killOf(wc); try { wc.close(); } catch { /* gone */ } if (embedHost === host) { embed = null; embedHost = null; } });
+    log('terminal: opened in the Hub');
+    return embed;
+  }
+  function placeEmbed(rect, visible) {
+    if (!embed || embed.webContents.isDestroyed()) return;
+    if (rect) embed.setBounds({ x: Math.round(rect.x), y: Math.round(rect.y), width: Math.max(1, Math.round(rect.width)), height: Math.max(1, Math.round(rect.height)) });
+    embed.setVisible(!!visible);
+    if (visible) embed.webContents.focus();
+  }
 
-  function spawn(shell, cols, rows) {
+  const senders = () => [win && !win.isDestroyed() ? win.webContents : null, embed && !embed.webContents.isDestroyed() ? embed.webContents : null].filter(Boolean);
+  const fromTerm = (e) => senders().includes(e.sender);
+  const sendTo = (wc, ch, data) => { if (wc && !wc.isDestroyed()) wc.send(ch, data); };
+  function killOf(wc) { for (const [id, t] of [...tabs]) if (t.wc === wc) kill(id); }
+
+  function spawn(wc, shell, cols, rows) {
     const P = loadPty();
     if (!P) return { error: `The terminal helper didn't load (${ptyError}).` };
     const s = SHELLS[shell] || SHELLS.powershell;
@@ -75,28 +105,52 @@ function createTerminal({ BrowserWindow, ipcMain, getConfig, setConfig, log, bra
         cwd: os.homedir(), env: { ...process.env, CAPRI_TERMINAL: '1' }, useConpty: true,
       });
     } catch (e) { log('terminal: spawn failed', e.message); return { error: e.message }; }
-    tabs.set(id, { proc, shell });
-    proc.onData((d) => { if (win && !win.isDestroyed()) win.webContents.send('term-data', { id, data: d }); });
-    proc.onExit(({ exitCode }) => { tabs.delete(id); if (win && !win.isDestroyed()) win.webContents.send('term-exit', { id, code: exitCode }); });
+    const tab = { proc, shell, wc, buf: '' };
+    tabs.set(id, tab);
+    // the last part of the screen is kept so a tab can move between the Hub and the window (Pop out)
+    proc.onData((d) => { tab.buf = (tab.buf + d).slice(-120000); sendTo(tab.wc, 'term-data', { id, data: d }); });
+    proc.onExit(({ exitCode }) => { tabs.delete(id); sendTo(tab.wc, 'term-exit', { id, code: exitCode }); });
     log('terminal: started', shell);
     return { id, label: s.label };
   }
   function kill(id) { const t = tabs.get(id); if (!t) return; tabs.delete(id); try { t.proc.kill(); } catch { /* gone */ } }
 
-  ipcMain.handle('term-spawn', (e, { shell, cols, rows } = {}) => (fromTerm(e) ? spawn(shell, cols, rows) : { error: 'no' }));
-  ipcMain.on('term-write', (e, { id, data } = {}) => { if (!fromTerm(e)) return; const t = tabs.get(id); if (t && typeof data === 'string') t.proc.write(data); });
-  ipcMain.on('term-resize', (e, { id, cols, rows } = {}) => { if (!fromTerm(e)) return; const t = tabs.get(id); if (t) try { t.proc.resize(Math.max(20, cols | 0), Math.max(5, rows | 0)); } catch { /* exited */ } });
-  ipcMain.on('term-kill', (e, { id } = {}) => { if (fromTerm(e)) kill(id); });
+  // a page may only touch its own tabs
+  const own = (e, id) => { const t = tabs.get(id); return t && t.wc === e.sender ? t : null; };
+  ipcMain.handle('term-spawn', (e, { shell, cols, rows } = {}) => (fromTerm(e) ? spawn(e.sender, shell, cols, rows) : { error: 'no' }));
+  ipcMain.on('term-write', (e, { id, data } = {}) => { const t = own(e, id); if (t && typeof data === 'string') t.proc.write(data); });
+  ipcMain.on('term-resize', (e, { id, cols, rows } = {}) => { const t = own(e, id); if (t) try { t.proc.resize(Math.max(20, cols | 0), Math.max(5, rows | 0)); } catch { /* exited */ } });
+  ipcMain.on('term-kill', (e, { id } = {}) => { if (own(e, id)) kill(id); });
   ipcMain.on('term-window', (e, what) => {
     if (!fromTerm(e)) return;
+    const isEmbed = embed && e.sender === embed.webContents;
+    if (isEmbed) {
+      if (what === 'popout') {
+        // its running tabs move to the terminal window (the screen so far comes along)
+        const ids = [...tabs].filter(([, t]) => t.wc === e.sender).map(([id]) => id);
+        if (!ids.length) { open('powershell'); return; }
+        e.sender.send('term-released', ids);
+        open('powershell', { adoptIds: ids });
+        log('terminal: popped out of the Hub', ids.length, 'tab(s)');
+      }
+      return;
+    }
     if (what === 'close') win.close();
     else if (what === 'min') win.minimize();
     else if (what === 'max') { if (win.isMaximized()) win.unmaximize(); else win.maximize(); }
   });
+  // the window takes over tabs from the Hub: they now send to it, and it gets each one's screen so far
+  ipcMain.handle('term-adopt', (e) => {
+    if (!(win && !win.isDestroyed() && e.sender === win.webContents)) return [];
+    const out = [];
+    for (const id of adopt) { const t = tabs.get(id); if (t) { t.wc = e.sender; out.push({ id, shell: t.shell, buf: t.buf }); } }
+    adopt = [];
+    return out;
+  });
   ipcMain.handle('term-info', (e) => {
     if (!fromTerm(e)) return {};
     const cfg = getConfig();
-    return { name: cfg.characterName || 'Capri', autoRun: !!(cfg.autoApprove && cfg.autoApprove.terminal) };
+    return { name: cfg.characterName || 'Capri', autoRun: !!(cfg.autoApprove && cfg.autoApprove.terminal), embedded: !!(embed && e.sender === embed.webContents) };
   });
   // the danger check lives here so the window can't be talked out of it
   ipcMain.handle('term-check', (e, cmd) => {
@@ -112,7 +166,7 @@ function createTerminal({ BrowserWindow, ipcMain, getConfig, setConfig, log, bra
     catch (err) { log('terminal: ask failed', err.message); return { say: `I couldn't think just now: ${err.message}`, commands: [], error: true }; }
   });
 
-  return { open, isOpen: () => !!(win && !win.isDestroyed()), SHELLS };
+  return { open, embedIn, placeEmbed, isOpen: () => !!(win && !win.isDestroyed()), SHELLS };
 }
 
 module.exports = { createTerminal, SHELLS, DANGER };

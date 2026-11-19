@@ -112,4 +112,4 @@ async function closeApp({ name } = {}) {
   }
 }
 
-module.exports = { openApp, closeApp, listOpenApps, _test: { score, best, norm, ALIASES } };
+module.exports = { openApp, closeApp, listOpenApps, getStartApps, _test: { score, best, norm, ALIASES } };

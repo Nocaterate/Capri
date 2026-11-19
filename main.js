@@ -1,7 +1,7 @@
 // Capri — desktop companion, main process.
 // Transparent always-on-top overlay + tray + hotkeys + AI/voice backend.
 const {
-  app, BrowserWindow, ipcMain, screen, globalShortcut, Tray, Menu, nativeImage, shell, session, Notification, powerMonitor, net,
+  app, BrowserWindow, ipcMain, screen, globalShortcut, Tray, Menu, nativeImage, shell, session, Notification, powerMonitor, net, dialog, desktopCapturer, WebContentsView,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -9,6 +9,7 @@ const { spawn } = require('child_process');
 const brain = require('./src/brain');
 const tts = require('./src/tts');
 const crypto = require('crypto');
+const os = require('os');
 const hermes = require('./src/hermes');
 const mcpServer = require('./src/mcp-server');
 const spotify = require('./src/spotify');
@@ -22,6 +23,10 @@ const commands = require('./src/commands');
 const { createWalker } = require('./src/walker');
 const { createTerminal } = require('./src/terminal');
 const { createUsage } = require('./src/usage');
+const { createHub } = require('./src/hub');
+const { createScreenTime } = require('./src/screentime');
+const { createStats } = require('./src/stats');
+const { createIcons } = require('./src/icons');
 
 const IS_TEST = process.env.COMPANION_TEST === '1';
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -32,10 +37,15 @@ const CONFIG_PATH = path.join(USER_DIR, 'config.json');
 const HISTORY_PATH = path.join(USER_DIR, 'history.json');
 const LOG_PATH = path.join(USER_DIR, 'capri.log');
 const NOTES_PATH = path.join(USER_DIR, 'notes.json');
+// notable things for the Hub's Status page (taken from the log as it's written)
+const recentEvents = [];
+const NOTABLE = /^(hermes (is not answering|gateway is answering|gateway up|gateway not answering|restarted)|discord state (online|off|error)|browser link (connected|disconnected)|restarting|pc helper exited|care: offline|hub: emptied|new version available|visualizer capture failed)/i;
 function log(...parts) {
   try {
     fs.mkdirSync(USER_DIR, { recursive: true });
-    const line = `[${new Date().toISOString()}] ${parts.map((p) => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ')}\n`;
+    const msg = parts.map((p) => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ');
+    if (NOTABLE.test(msg)) { recentEvents.push({ at: Date.now(), text: msg.slice(0, 140) }); if (recentEvents.length > 30) recentEvents.shift(); }
+    const line = `[${new Date().toISOString()}] ${msg}\n`;
     try { if (fs.statSync(LOG_PATH).size > 512 * 1024) fs.renameSync(LOG_PATH, LOG_PATH + '.old'); } catch { /* no log yet */ }
     fs.appendFileSync(LOG_PATH, line);
   } catch { /* logging must never break her */ }
@@ -95,7 +105,13 @@ const DEFAULT_CONFIG = {
   hotkeyTalk: 'Control+Alt+Space',
   hotkeyType: 'Control+Alt+T',
   hotkeyHide: 'Control+Alt+H',
+  hotkeyHub: 'Control+Alt+W',
+  // Capri Hub (src/hub.js): window place, the apps you pinned, screen time on/off
+  hubBounds: null,
+  myApps: [], // [{ id, name, kind: 'appsfolder'|'file'|'url', target, icon }]
+  screenTime: true, // count which app is in front, per day (only app names; Hub → Screen time)
   openAtLogin: false,
+  hubAtLogin: false, // also open Capri Hub when she starts with Windows (not on her own restarts)
   spotifyClientId: '',
   spotifyRefreshToken: '',
   spotifyAccessToken: '',
@@ -121,6 +137,7 @@ const DEFAULT_CONFIG = {
   dOut: false, // D (her companion) is out next to her
   // browsers (the Capri Browser Link extension)
   browserLink: true, // listen for the extension on 127.0.0.1:43824
+  defaultBrowser: '', // the browser Capri opens pages in and uses first ('' = Windows' default; chrome, edge, brave, opera, vivaldi, firefox)
   browserLinks: [], // extension IDs you allowed once
   // what Capri may do without asking first (Settings → Permissions, or "Always allow" on her question)
   autoApprove: { apps: false, files: false, browser: false, commands: false, terminal: false },
@@ -226,28 +243,37 @@ function toggleHidden(force) {
     setTimeout(() => { if (hidden && alive()) overlay.hide(); }, 900);
   } else {
     overlay.showInactive();
+    bringToFront();
     send('summon');
   }
   buildTray();
 }
 
+// Windows forgets a window is "always on top" after it was hidden, so a summoned Capri can end up behind other
+// windows. Flip the flag off and on and move her to the top of the stack (also a little later, after the
+// window is really shown, because the first try can land before Windows has finished showing it).
+function bringToFront() {
+  const go = () => {
+    if (!alive() || hidden) return;
+    try { overlay.setAlwaysOnTop(false); overlay.setAlwaysOnTop(true, 'screen-saver'); overlay.moveTop(); } catch { /* closing */ }
+  };
+  go();
+  setTimeout(go, 150);
+  setTimeout(go, 600);
+}
+
 function buildTray() {
   if (!tray) {
     tray = new Tray(nativeImage.createFromPath(path.join(ASSET_DIR, 'icon32.png')));
-    tray.on('click', () => toggleHidden());
+    tray.on('click', () => { if (hub) hub.open(); });
   }
   tray.setToolTip(`${config.characterName} — desktop companion`);
   tray.setContextMenu(Menu.buildFromTemplate(menuTemplate()));
 }
 
 function menuTemplate() {
+  // trimmed on purpose: Notes & To-do, Terminal, apps, stats and more live in the Hub (tray icon, Ctrl+Alt+W, /hub)
   return [
-    ...(newRelease ? [{ label: `⚡ Update to v${newRelease.version}…`, click: () => shell.openExternal(newRelease.url) }, { type: 'separator' }] : []),
-    { label: `Talk (voice)    ${config.hotkeyTalk}`, click: () => { toggleHidden(false); send('talk-toggle'); } },
-    partyOn
-      ? { label: `Type a message (voice only during ${partyKind === 'ride' ? 'In Love With Myself' : 'High Forever'})`, enabled: false }
-      : { label: `Type a message    ${config.hotkeyType}`, click: () => focusTyping() },
-    { type: 'separator' },
     {
       label: 'Actions',
       // with D out she gets duo moves; on her own, her solo ones
@@ -272,19 +298,13 @@ function menuTemplate() {
     partyOn && partyKind === 'ride'
       ? { label: 'Uncall D (not mid-ride)', enabled: false }
       : { label: config.dOut ? 'Uncall D' : 'Call D', click: () => setConfig({ dOut: !config.dOut }) },
-    { label: 'Terminal', submenu: [
-      { label: 'PowerShell', click: () => terminal.open('powershell') },
-      { label: 'CMD', click: () => terminal.open('cmd') },
-    ] },
-    { label: 'Sit on my window', type: 'checkbox', checked: !!config.windowWalker, enabled: process.platform === 'win32',
-      click: () => { toggleHidden(false); setConfig({ windowWalker: !config.windowWalker }); } },
-    { label: notesOpen ? 'Close notes & to-do' : 'Notes & To-do list', click: () => { toggleHidden(false); send('notes-toggle'); } },
-    { label: 'Open activity log', click: () => { if (!fs.existsSync(LOG_PATH)) log('log started'); shell.openPath(LOG_PATH); } },
-    { label: 'Clear chat memory', click: () => { history = []; saveJSON(HISTORY_PATH, history); send('toast', 'Chat memory wiped. Fresh start!'); } },
     { type: 'separator' },
     { label: 'Settings…', click: createSettings },
+    { label: 'Open activity log', click: () => { if (!fs.existsSync(LOG_PATH)) log('log started'); shell.openPath(LOG_PATH); } },
+    { label: 'Clear chat memory', click: () => { clearHistory(); send('toast', 'Chat memory wiped. Fresh start!'); } },
+    { type: 'separator' },
     { label: hidden ? `Summon ${config.characterName}` : 'Hide', click: () => toggleHidden() },
-    { label: 'Restart', click: () => restartCapri('from the menu') },
+    { label: 'Restart', click: () => restartCapri('from the menu', { openHub: !!config.hubAtLogin }) },
     { label: 'Quit', click: () => app.quit() },
   ];
 }
@@ -310,8 +330,8 @@ function setConfig(patch) {
   send('config', publicConfig());
   // an open Settings window hears about changes made elsewhere (e.g. resizing her with the mouse wheel)
   if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('config', publicConfig());
-  if ('openAtLogin' in patch && !IS_TEST) app.setLoginItemSettings({ openAtLogin: !!config.openAtLogin });
-  if (['hotkeyTalk', 'hotkeyType', 'hotkeyHide'].some((k) => k in patch)) registerHotkeys();
+  if ('openAtLogin' in patch && !IS_TEST) setLoginItem();
+  if (['hotkeyTalk', 'hotkeyType', 'hotkeyHide', 'hotkeyHub'].some((k) => k in patch)) registerHotkeys();
   if ('hermesBridge' in patch || 'hermesMcpPort' in patch) syncToolServer();
   if ('activityAware' in patch) activity.sync();
   if ('windowWalker' in patch) walker.sync();
@@ -330,6 +350,12 @@ function loadNotes() {
   const d = loadJSON(NOTES_PATH, {});
   return { notes: Array.isArray(d.notes) ? d.notes : [], todos: Array.isArray(d.todos) ? d.todos : [] };
 }
+// "2026-11-20" + "09:30" -> that moment in local time
+function atDate(date, hhmm) {
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(y, mo - 1, d, h, m, 0, 0).getTime();
+}
 function nextOccurrence(hhmm, from = Date.now()) {
   const [h, m] = hhmm.split(':').map(Number);
   const t = new Date(from);
@@ -346,11 +372,16 @@ function cleanNotes(doc, prev) {
   if (!Array.isArray(doc.todos)) return { notes, todos: prev ? prev.todos : [] };
   const todos = doc.todos.slice(0, 500).map((t) => {
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(t.time || '') ? t.time : '';
+    // an optional day (the Hub's calendar); without one, a time means "the next time the clock says it"
+    const date = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(t.date || '') ? t.date : '';
     const out = { id: clip(t.id, 40) || crypto.randomUUID(), text: clip(t.text, 50), time, remind: !!(t.remind && time), created: Number(t.created) || Date.now() };
+    if (date) out.date = date;
     if (out.remind) {
       const was = old.get(out.id);
-      // keep the planned time unless the reminder was just switched on or its time changed
-      out.remindAt = was && was.remind && was.time === time && was.remindAt ? was.remindAt : nextOccurrence(time);
+      // keep the planned time unless the reminder was just switched on or its day/time changed
+      if (was && was.remind && was.time === time && (was.date || '') === date && was.remindAt) out.remindAt = was.remindAt;
+      else if (date) { out.remindAt = atDate(date, time); if (out.remindAt < Date.now() - 60000) { out.remind = false; delete out.remindAt; } }
+      else out.remindAt = nextOccurrence(time);
     }
     return out;
   });
@@ -409,7 +440,37 @@ let activityPending = null;
 // Capri Terminal: your PowerShell / CMD in her style, with /capri (src/terminal.js + renderer/terminal.html)
 const terminal = createTerminal({
   BrowserWindow, ipcMain, getConfig: () => config, setConfig, log: (...a) => log(...a), brain,
+  rootDir: __dirname, iconPath: path.join(ASSET_DIR, 'icon256.png'), WebContentsView,
+});
+
+// Capri Hub: dashboard, chat, tasks, apps, stats, screen time (src/hub.js + renderer/hub.html)
+const screenTime = createScreenTime({ pc, file: path.join(USER_DIR, 'screentime.json'), log: (...a) => log(...a), getConfig: () => config, selfName: config.characterName || 'Capri' });
+const stats = createStats({ pc, log: (...a) => log(...a) });
+let hub = null;
+const icons = createIcons({
+  dir: path.join(USER_DIR, 'icons'), log: (...a) => log(...a),
+  getFileIcon: (p, o) => app.getFileIcon(p, o),
+  onReady: (done) => { if (hub) hub.send('hub-icons-ready', done); },
+});
+hub = createHub({
+  BrowserWindow, ipcMain, dialog, shell, getConfig: () => config, setConfig, log: (...a) => log(...a),
   rootDir: __dirname, iconPath: path.join(ASSET_DIR, 'icon256.png'),
+  icons, screenTime, stats, pc, apps,
+  chat: (text) => chatTurn(text, {}),
+  getHistory: () => chatLines(),
+  clearHistory: () => clearHistory(),
+  openSettings: () => createSettings(),
+  getRelease: () => newRelease,
+  appVersion: app.getVersion(),
+  getStatus: () => hubStatus(),
+  terminal,
+  openPage: (u) => openPage(u),
+  statusAction: (id) => hubStatusAction(id),
+  music: {
+    track: () => spotify.track(),
+    forget: () => spotify.forgetTrack(),
+    control: (action) => spotify.control({ action }, (a) => actions.media_control(a)),
+  },
 });
 
 // "Sit on my window": where the window in front is, for the overlay (src/walker.js + renderer/walker.js)
@@ -444,14 +505,88 @@ const usage = createUsage({
 brain.setUsageHook((url, model, u) => usage.add(url, model, u));
 ipcMain.handle('usage-get', () => usage.summary());
 
+// is the internet there? Several test addresses at once, through Chromium's network (system proxy) and Node's own;
+// any answer means online (one blocked address or a LAN adapter Windows misjudges must not count as offline). Also
+// online if the Discord bot is connected. Cached 30 s so the Hub and Care can both ask.
+const ONLINE_PROBES = ['https://www.msftconnecttest.com/connecttest.txt', 'https://www.gstatic.com/generate_204', 'https://www.cloudflare.com/cdn-cgi/trace', 'https://api.github.com/zen'];
+let onlineCache = { at: 0, ok: null }, lastOfflineWhy = '';
+async function checkOnline(fresh) {
+  if (!fresh && onlineCache.ok != null && Date.now() - onlineCache.at < 30000) return onlineCache.ok;
+  const errs = [];
+  const probe = (u, viaNet) => (viaNet ? net.fetch : fetch)(u, { signal: AbortSignal.timeout(7000), cache: 'no-store' })
+    .then((r) => { if (r.status >= 500) throw new Error(`HTTP ${r.status}`); return true; })
+    .catch((e) => { errs.push(`${viaNet ? 'net' : 'node'} ${new URL(u).host}: ${(e && (e.cause && e.cause.code)) || (e && e.message) || e}`); throw e; });
+  let ok = false;
+  try { ok = await Promise.any(ONLINE_PROBES.flatMap((u) => [probe(u, true), probe(u, false)])); } catch { ok = false; }
+  if (!ok) { try { ok = discordBot.status().state === 'online'; } catch { /* not ready */ } }
+  if (!ok) {
+    const why = errs.slice(0, 4).join(' | ');
+    if (why !== lastOfflineWhy) { lastOfflineWhy = why; log('internet check failed:', why); }
+  } else lastOfflineWhy = '';
+  onlineCache = { at: Date.now(), ok };
+  return ok;
+}
+
+// ---------- the Hub's Status page and title-bar lights ----------
+// light: 'ok' | 'warn' | 'bad' | 'off' (turned off in Settings)
+async function hubStatus() {
+  const hermesOn = !!(config.hermesBrain || config.hermesBridge);
+  const [hermesUp, online, helperOk, track] = await Promise.all([
+    hermesOn ? hermes.health() : Promise.resolve(false),
+    checkOnline(),
+    process.platform === 'win32' ? pc.call('ping', {}, 4000).then(() => true).catch(() => false) : Promise.resolve(null),
+    spotify.connected() ? spotify.track().catch(() => null) : Promise.resolve(null),
+  ]);
+  const ds = discordBot.status() || {};
+  const bs = browsers.status();
+  const prev = config.hermesPrevBrain;
+  const brainName = config.hermesBrain ? 'Hermes' : String(config.chatModel || 'AI');
+  const services = [
+    { id: 'hermes', name: 'BRAIN · ' + (config.hermesBrain ? 'HERMES' : 'AI'), short: 'HERMES',
+      light: config.hermesBrain || hermesOn ? (hermesUp ? 'ok' : connecting ? 'warn' : 'bad') : (config.apiKey || /localhost|127\.0\.0\.1/.test(config.apiBaseUrl) ? 'ok' : 'warn'),
+      state: config.hermesBrain || hermesOn ? (hermesUp ? 'Online' : connecting ? 'Starting…' : 'Not answering') : `Using ${brainName}`,
+      lines: [config.hermesBrain ? 'Capri talks through Hermes (WSL, port 8642)' : `Model: ${config.chatModel}`, hermesOn && !hermesUp ? 'She answers with the fallback brain until it is back' : ''],
+      actions: hermesOn ? [{ id: 'hermes-restart', label: 'RESTART HERMES' }] : [{ id: 'settings', label: 'SETTINGS' }] },
+    { id: 'fallback', name: 'FALLBACK BRAIN', light: config.hermesBrain ? (prev && prev.apiKey ? 'ok' : 'warn') : 'off',
+      state: config.hermesBrain ? (prev && prev.apiKey ? 'Ready' : 'None set') : 'Not needed', lines: [prev && prev.chatModel ? `${prev.chatModel}` : ''], actions: [] },
+    { id: 'discord', name: 'DISCORD BOT', short: 'DISCORD',
+      light: !config.discordEnabled ? 'off' : ds.state === 'online' ? 'ok' : ds.state === 'connecting' ? 'warn' : 'bad',
+      state: !config.discordEnabled ? 'Off' : ds.text || ds.state || 'Unknown', lines: [ds.owner ? `owner ${ds.owner}` : ''],
+      actions: config.discordEnabled ? [{ id: 'discord-restart', label: 'RESTART BOT' }] : [{ id: 'settings', label: 'SETTINGS' }] },
+    { id: 'spotify', name: 'SPOTIFY', short: 'SPOTIFY', light: spotify.connected() ? 'ok' : 'off',
+      state: spotify.connected() ? 'Connected' : 'Not connected',
+      lines: [track && track.name ? `${track.playing ? 'playing' : 'paused on'} ${track.name}` : spotify.connected() ? 'nothing playing' : 'Connect it in Settings → Apps'],
+      actions: spotify.connected() ? [] : [{ id: 'settings', label: 'CONNECT' }] },
+    { id: 'browser', name: 'BROWSER LINK', short: 'BROWSER',
+      light: config.browserLink === false ? 'off' : bs.browsers.length ? 'ok' : bs.listening ? 'warn' : 'bad',
+      state: config.browserLink === false ? 'Off' : bs.browsers.length ? `${bs.browsers.map((b) => b.name).join(' + ')} linked` : bs.waiting.length ? `${bs.waiting.join(', ')} waits for your OK` : 'No browser linked',
+      lines: [
+        bs.browsers.length ? '' : bs.waiting.length ? 'Answer Allow on Capri\'s question on the desktop' : bs.listening ? 'Open the browser with the Capri Browser Link extension loaded (Developer mode → Load unpacked)' : 'Not listening',
+        bs.defaultBrowser ? `main browser: ${bs.defaultBrowser}${bs.chosen ? '' : ' (Windows default)'}` : '',
+      ],
+      actions: [{ id: 'browser-folder', label: 'EXTENSION FOLDER' }, { id: 'settings', label: 'SETTINGS' }] },
+    { id: 'internet', name: 'INTERNET', short: 'INTERNET', light: online ? 'ok' : 'bad', state: online ? 'Online' : 'Offline', lines: [online ? '' : "Windows' internet test didn't answer"], actions: [] },
+    { id: 'helper', name: 'PC HELPER · TOOLS', light: helperOk === false ? 'bad' : 'ok',
+      state: helperOk === false ? 'Not answering' : helperOk ? 'Running' : 'Windows only',
+      lines: [`tool server ${toolServer ? `:${config.hermesMcpPort}` : 'off'} · screen time ${config.screenTime !== false ? 'on' : 'off'}`], actions: [{ id: 'helper-restart', label: 'RESTART HELPER' }] },
+  ].map((x) => ({ ...x, lines: x.lines.filter(Boolean) }));
+  return { services, recent: recentEvents.slice(-10).reverse(), at: Date.now() };
+}
+async function hubStatusAction(id) {
+  log('hub: status action', id);
+  if (id === 'hermes-restart') { connecting = true; const ok = await hermes.restartGateway(log).catch(() => false); connecting = false; return { ok, text: ok ? 'Hermes is back.' : "Hermes didn't come back yet. Try again in a minute." }; }
+  if (id === 'discord-restart') { clearTimeout(discordTimer); const st = await discordBot.start(); broadcastDiscord(); return { ok: st && st.state === 'online', text: (st && st.text) || 'Restarted.' }; }
+  if (id === 'browser-folder') { const dir = path.join(__dirname.replace(/app\.asar$/, 'app.asar.unpacked'), 'browser-extension'); await shell.openPath(dir); return { ok: true, text: 'Opened the extension folder.' }; }
+  if (id === 'helper-restart') { pc.stop(); await new Promise((r) => setTimeout(r, 1200)); await pc.call('ping', {}, 20000).catch(() => {}); return { ok: true, text: 'The PC helper restarted.' }; }
+  if (id === 'settings') { createSettings(); return { ok: true }; }
+  return { ok: false };
+}
+
 // ---------- care & PC alerts ----------
 const care = createCare({
   getConfig: () => config, log: (...a) => log(...a),
   getIdleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return 0; } },
-  isOnline: async () => {
-    if (net.isOnline && !net.isOnline()) return false;
-    try { const r = await net.fetch('https://www.msftconnecttest.com/connecttest.txt', { signal: AbortSignal.timeout(6000) }); return r.ok; } catch { return false; }
-  },
+  isOnline: () => checkOnline(true),   // several addresses at once (see checkOnline)
   isBusy: () => hidden || partyOn || !alive(),
   onSay: (l) => send('care-say', l),
 });
@@ -489,7 +624,14 @@ const browsers = browserLink.createBrowserLink({
   allow: (id) => { config.browserLinks = [...new Set([...(config.browserLinks || []), id])]; saveJSON(CONFIG_PATH, config); },
   ask: (text) => askUser(text, 120),
   onState: (s) => { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('browser-state', s); },
+  getPreferred: () => config.defaultBrowser || '',
 });
+// open a web page in Capri's browser (Settings → Browser), else Windows' default
+async function openPage(url) {
+  const key = browsers.browserKey(config.defaultBrowser || '');
+  if (key && process.platform === 'win32' && await browsers.launch(key, url)) return;
+  shell.openExternal(url);
+}
 function notLinked(r, browser) {
   if (r.error !== 'NOT_CONNECTED') return `That didn't work: ${r.error}`;
   const st = browsers.status();
@@ -534,6 +676,7 @@ function saveNotesDoc(doc, tab, focus) {
   saveJSON(NOTES_PATH, clean);
   scheduleTodoReminders(clean);
   send('notes-updated', { ...clean, by: 'capri', tab, focus });
+  if (hub) hub.send('notes-updated', { ...clean, by: 'capri' });
   return clean;
 }
 const todoTimers = new Map();
@@ -559,19 +702,23 @@ function fireTodoReminder(id) {
   toggleHidden(false);
   send('reminder', late ? `${t.text} (that was at ${t.time})` : t.text);
   send('notes-updated', doc);
+  if (hub) hub.send('notes-updated', doc);
   try {
     if (Notification.isSupported()) {
       const n = new Notification({ title: `${config.characterName} reminder`, body: `${t.text}${t.time ? `  ·  ${t.time}` : ''}`, icon: path.join(ASSET_DIR, 'icon256.png') });
-      n.on('click', () => { toggleHidden(false); send('notes-toggle', 'open'); });
+      n.on('click', () => { if (hub) hub.open('task'); });
       n.show();
     }
   } catch (e) { log('notification failed', e.message); }
 }
 ipcMain.handle('notes-get', () => loadNotes());
-ipcMain.handle('notes-save', (_e, doc) => {
+ipcMain.handle('notes-save', (e, doc) => {
   const clean = cleanNotes(doc || {}, loadNotes());
   saveJSON(NOTES_PATH, clean);
   scheduleTodoReminders(clean);
+  // the other side (her hologram panel or the Hub) hears about it; the one that saved already has it
+  if (hub && hub.isOpen() && alive() && e.sender === overlay.webContents) hub.send('notes-updated', clean);
+  else send('notes-updated', clean);
   return clean;
 });
 ipcMain.on('notes-state', (_e, open) => { notesOpen = !!open; if (tray) buildTray(); });
@@ -657,10 +804,22 @@ async function checkForUpdate() {
 // ---------- live updates ----------
 // When Capri runs from a plain folder (resources/app, not app.asar), editing her files updates her by herself:
 // look-only files (renderer/, assets/) reload her window, anything else restarts the app.
-function restartCapri(why) {
+function restartCapri(why, { openHub = false } = {}) {
   log('restarting', why);
   send('toast', 'Updating myself… back in a sec! ⚡');
-  setTimeout(() => { app.relaunch(); app.quit(); }, 700);
+  // without --at-login (a restart is not a Windows start); with --hub=<page> when the Hub was open (it comes back on
+  // the same page) or when "Restart" was picked with "open Capri Hub too" on
+  const args = process.argv.slice(1).filter((a) => a !== AT_LOGIN_ARG && !a.startsWith('--hub='));
+  const page = hub && hub.isOpen() ? hub.currentPage() : openHub ? 'dash' : '';
+  if (page) args.push(`--hub=${page}`);
+  setTimeout(() => { app.relaunch({ args }); app.quit(); }, 700);
+}
+// Windows start: the login item passes --at-login (Windows can't tell otherwise). Also counts as a Windows start when
+// Windows itself has only been up for a few minutes (the first boot after this update, before the flag is set).
+const AT_LOGIN_ARG = '--at-login';
+const startedAtLogin = process.argv.includes(AT_LOGIN_ARG) || (config.openAtLogin && os.uptime() < 240);
+function setLoginItem() {
+  app.setLoginItemSettings({ openAtLogin: !!config.openAtLogin, args: config.openAtLogin ? [AT_LOGIN_ARG] : [] });
 }
 function watchOwnFiles() {
   if (IS_TEST || __dirname.includes('app.asar')) return;
@@ -675,7 +834,7 @@ function watchOwnFiles() {
     fs.watch(__dirname, { recursive: true }, (_ev, file) => {
       if (!file) return;
       const f = String(file).replace(/\\/g, '/');
-      if (/^(node_modules|\.git)(\/|$)/.test(f) || /(^|\/)(\.|~)|\.(log|tmp|swp)$/i.test(f)) return;
+      if (/^(node_modules|\.git)(\/|$)/.test(f) || /(^|\/)(\.|~)|\.(log|tmp|swp|crx|pem)$/i.test(f)) return;
       try {
         const s = fs.statSync(path.join(__dirname, f));
         if (s.isDirectory()) return;
@@ -691,6 +850,7 @@ function watchOwnFiles() {
         log('reloading her window, files changed:', list.join(', '));
         if (alive()) overlay.webContents.reloadIgnoringCache();
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.reloadIgnoringCache();
+        if (hub) hub.reload();
       }, 1500);
     });
     log('watching her own files for updates:', __dirname);
@@ -831,6 +991,7 @@ function registerHotkeys() {
   bind(config.hotkeyTalk, () => { toggleHidden(false); send('talk-toggle'); });
   bind(config.hotkeyType, focusTyping);
   bind(config.hotkeyHide, () => toggleHidden());
+  bind(config.hotkeyHub, () => { if (hub) hub.open(); });
 }
 
 // ---------- desktop actions the AI may call ----------
@@ -839,16 +1000,18 @@ const actions = {
   open_website({ url }) {
     if (!/^https?:\/\//i.test(url || '')) url = 'https://' + String(url || '').replace(/^\/+/, '');
     try { new URL(url); } catch { return 'Invalid URL.'; }
-    shell.openExternal(url);
+    openPage(url);
     return `Opening ${url}`;
   },
   search_web({ query, site }) {
     const q = encodeURIComponent(query || '');
     const url = site === 'youtube' ? `https://www.youtube.com/results?search_query=${q}` : `https://www.google.com/search?q=${q}`;
-    shell.openExternal(url);
+    openPage(url);
     return `Searching "${query}" on ${site === 'youtube' ? 'YouTube' : 'Google'}`;
   },
   open_app({ name }) {
+    const mine = hub && hub.findMyApp(name);   // apps pinned in the Hub's My Apps win
+    if (mine && hub.launch(mine).ok) return `Opening ${mine.name}`;
     const key = String(name || '').toLowerCase().trim();
     const win = {
       notepad: 'notepad', calculator: 'calc', calc: 'calc', paint: 'mspaint',
@@ -914,23 +1077,26 @@ const actions = {
     return on === false ? 'Ride over. Back to the desktop!' : 'In Love With Myself: road trip with D!';
   },
   // her Notes & To-do list (the hologram panel)
-  add_todo({ text, time, remind }) {
+  add_todo({ text, time, remind, date }) {
     const t = clip(String(text || '').trim(), 50);
     if (!t) return 'I need to know what the to-do is.';
     const hm = parseClock(time);
     if (time && !hm) return `I couldn't understand the time "${time}". Say it like 20:00.`;
+    const day = String(date || '').trim();
+    if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return `I couldn't understand the date "${date}". Use YYYY-MM-DD.`;
+    if (day && hm && atDate(day, hm) < Date.now() - 60000) return `${day} ${hm} has already passed. Pick a time that's still coming.`;
     const doc = loadNotes();
-    const item = { id: crypto.randomUUID(), text: t, time: hm, remind: !!hm && remind !== false, created: Date.now() };
+    const item = { id: crypto.randomUUID(), text: t, time: hm, remind: !!hm && remind !== false, created: Date.now(), ...(day ? { date: day } : {}) };
     doc.todos.push(item);
     const saved = saveNotesDoc(doc, 'todo', item.id);
     const it = saved.todos.find((x) => x.id === item.id);
-    const day = it && it.remindAt && new Date(it.remindAt).toDateString() !== new Date().toDateString() ? ' tomorrow' : '';
-    return `Added to your to-do list: "${t}"${hm ? (it.remind ? `, and I'll remind you${day} at ${hm}.` : ` at ${hm}.`) : '.'}${String(text).trim().length > 50 ? ' (I shortened it to 50 letters.)' : ''}`;
+    const when = day ? ` on ${day}` : it && it.remindAt && new Date(it.remindAt).toDateString() !== new Date().toDateString() ? ' tomorrow' : '';
+    return `Added to your to-do list: "${t}"${hm ? (it.remind ? `, and I'll remind you${when} at ${hm}.` : `${when} at ${hm}.`) : when ? `${when}.` : '.'}${String(text).trim().length > 50 ? ' (I shortened it to 50 letters.)' : ''}`;
   },
   list_todos() {
     const { todos } = loadNotes();
     if (!todos.length) return 'The to-do list is empty.';
-    return todos.map((t, i) => `${i + 1}. ${t.text}${t.time ? ` at ${t.time}` : ''}${t.remind ? ' (reminder on)' : ''}`).join('\n');
+    return todos.map((t, i) => `${i + 1}. ${t.text}${t.date ? ` on ${t.date}` : ''}${t.time ? ` at ${t.time}` : ''}${t.remind ? ' (reminder on)' : ''}`).join('\n');
   },
   remove_todo({ text }) {
     const doc = loadNotes();
@@ -971,7 +1137,7 @@ const actions = {
       // not linked: still open it, in the browser they named (or the default one)
       const u = /^[a-z]+:\/\//i.test(url || '') ? url : /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(url || '') ? `https://${url}` : `https://www.google.com/search?q=${encodeURIComponent(url || '')}`;
       try { const p = new URL(u); if (!/^https?:$/.test(p.protocol)) return 'I only open normal web pages.'; } catch { return 'That address looks wrong.'; }
-      const key = browsers.browserKey(browser);
+      const key = browsers.browserKey(browser) || browsers.browserKey(config.defaultBrowser || '');
       const ok = key ? await browsers.launch(key, u) : (shell.openExternal(u), true);
       if (!ok) return `I couldn't start ${browser}. Is it installed?`;
       return `Opened ${browserLink.host(u) || u}${key ? ` in ${browsers.names[key]}` : ''}. (I can't read or click there until the Capri Browser Link extension is added to that browser: Settings → Browser.)`;
@@ -1251,8 +1417,9 @@ ipcMain.handle('run-command', async (_e, text) => {
   try {
     const r = await commands.runCommand(text, {
       actions, getConfig: () => config, setConfig, send, openSettings: createSettings,
-      clearHistory: () => { history = []; saveJSON(HISTORY_PATH, history); },
+      clearHistory,
       openTerminal: (shell) => terminal.open(shell),
+      openHub: (page) => hub.open(page),
       partyKind: () => (partyOn ? partyKind : ''),
     });
     log('command:', String(text).split(/\s+/)[0], '->', r.ok ? 'ok' : 'no');
@@ -1263,7 +1430,9 @@ ipcMain.handle('run-command', async (_e, text) => {
   }
 });
 
-ipcMain.handle('chat', async (_e, userText, extra) => {
+ipcMain.handle('chat', (_e, userText, extra) => chatTurn(userText, extra));
+// one chat turn with her brain (the overlay, voice and the Hub all share this and her memory)
+async function chatTurn(userText, extra) {
   let res;
   try {
     res = await brain.chat(config, history, userText, actions, extra || {});
@@ -1282,8 +1451,26 @@ ipcMain.handle('chat', async (_e, userText, extra) => {
   log('capri:', res.text);
   history = res.history.slice(-24);
   saveJSON(HISTORY_PATH, history);
+  if (hub) hub.send('hub-history-changed');
   return { text: res.text, emotion: res.emotion, actions: res.actionsDone };
-});
+}
+function clearHistory() {
+  history = [];
+  saveJSON(HISTORY_PATH, history);
+  if (hub) hub.send('hub-history-changed');
+}
+// her memory as plain chat lines for the Hub (no tool calls; the emotion tag stripped)
+function chatLines() {
+  const out = [];
+  for (const m of history) {
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    const text = typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.map((c) => c.text || '').join(' ') : '';
+    if (!text.trim() || (m.role === 'assistant' && m.tool_calls && !text.trim())) continue;
+    if (m.role === 'user' && /^\(Capri noticed /.test(text)) continue;
+    out.push({ role: m.role, text: m.role === 'assistant' ? text.replace(/^\s*\[[a-z]+\]\s*/i, '') : text });
+  }
+  return out.slice(-40);
+}
 ipcMain.handle('tts', async (_e, text) => (config.voiceEnabled ? tts.synthesize(text, config) : null));
 ipcMain.handle('test-api', async (_e, patch) => brain.testConnection({ ...config, ...patch }));
 ipcMain.handle('list-voices', () => tts.VOICES);
@@ -1370,8 +1557,17 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', () => toggleHidden(false));
   app.whenReady().then(() => {
-    session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media'));
-    session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === 'media');
+    // 'media' = her microphone; 'display-capture' only for the Hub, whose music visualizer listens to the PC's sound
+    const hubAsks = (wc) => !!(hub && hub.owns(wc));
+    session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(perm === 'media' || (perm === 'display-capture' && hubAsks(wc))));
+    session.defaultSession.setPermissionCheckHandler((wc, perm) => perm === 'media' || (perm === 'display-capture' && hubAsks(wc)));
+    // the visualizer's sound: system audio loopback (the video part is stopped right away; nothing is recorded or sent)
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      if (!(hub && hub.ownsFrame(request.frame)) || process.platform !== 'win32') { callback({}); return; }
+      desktopCapturer.getSources({ types: ['screen'] })
+        .then((src) => callback(src[0] ? { video: src[0], audio: 'loopback' } : {}))
+        .catch((e) => { log('visualizer capture failed', e.message); callback({}); });
+    });
     createOverlay();
     buildTray();
     registerHotkeys();
@@ -1396,6 +1592,11 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
     if (!IS_TEST) activity.sync();
     if (!IS_TEST) walker.sync();
     if (!IS_TEST) care.start();
+    if (!IS_TEST) screenTime.sync();
+    if (!IS_TEST && config.openAtLogin) setLoginItem();       // keep the login item carrying --at-login
+    if (!IS_TEST && startedAtLogin && config.hubAtLogin) setTimeout(() => { log('hub: opened at Windows start'); hub.open('dash'); }, 5000);
+    const hubArg = process.argv.find((a) => a.startsWith('--hub='));
+    if (!IS_TEST && hubArg && !(startedAtLogin && config.hubAtLogin)) setTimeout(() => { log('hub: reopened after restart'); hub.open(hubArg.slice(6)); }, 2500);
     scheduleTodoReminders(loadNotes());
     log('to-do reminders scheduled:', loadNotes().todos.filter((t) => t.remind).length);
     if (!IS_TEST) { setTimeout(checkForUpdate, 20000); setInterval(checkForUpdate, 12 * 3600 * 1000); }
@@ -1411,7 +1612,7 @@ if (!IS_TEST && !app.requestSingleInstanceLock()) {
       require(process.env.COMPANION_TEST_SCRIPT || './test/selftest')(overlay, actions);
     }
   });
-  app.on('will-quit', () => { globalShortcut.unregisterAll(); if (toolServer) toolServer.close(); browsers.stop(); pc.stop(); });
+  app.on('will-quit', () => { globalShortcut.unregisterAll(); if (toolServer) toolServer.close(); browsers.stop(); screenTime.stop(); pc.stop(); });
   let quitting = false;
   app.on('before-quit', (e) => {
     if (quitting) return;

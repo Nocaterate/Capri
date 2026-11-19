@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Capri Hub</title>
+<link rel="stylesheet" href="hub.css">
+</head>
+<body>
+<div id="win">
+  <header id="bar">
+    <span id="brand">CAPRI HUB</span>
+    <span id="title">// dashboard</span>
+    <button id="update" class="chip hot" hidden></button>
+    <span class="grow"></span>
+    <span id="lights" class="lights" aria-label="Status"></span>
+    <button class="wbtn" data-win="min" aria-label="Minimize">–</button>
+    <button class="wbtn" data-win="max" aria-label="Maximize">□</button>
+    <button class="wbtn close" data-win="close" aria-label="Close">✕</button>
+  </header>
+  <div id="body">
+    <nav id="rail" aria-label="Hub pages">
+      <button class="nav" data-page="dash"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>DASHBOARD</button>
+      <button class="nav" data-page="chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>CHAT</button>
+      <button class="nav" data-page="task"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11l2 2 4-4M9 17h7"/></svg>TASK</button>
+      <button class="nav" data-page="apps"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="5" height="5"/><rect x="10" y="3" width="5" height="5"/><rect x="17" y="3" width="4" height="5"/><rect x="3" y="10" width="5" height="5"/><rect x="10" y="10" width="5" height="5"/><rect x="3" y="17" width="5" height="4"/></svg>APPS</button>
+      <button class="nav" data-page="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><rect x="5" y="12" width="3" height="6"/><rect x="10.5" y="7" width="3" height="11"/><rect x="16" y="3" width="3" height="15"/></svg>STATS</button>
+      <button class="nav" data-page="time"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>SCREEN TIME</button>
+      <button class="nav" data-page="mine"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>FAVORITES</button>
+      <button class="nav" data-page="status"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>STATUS<i id="status-dot" class="nav-dot" hidden></i></button>
+      <button class="nav" data-page="term"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>TERMINAL</button>
+      <span class="grow"></span>
+      <button class="nav" id="go-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>SETTINGS ↗</button>
+    </nav>
+
+    <main id="pages">
+      <!-- DASHBOARD -->
+      <section class="page" id="p-dash">
+        <div class="dash">
+          <div class="card clock">
+            <div class="clock-row">
+              <svg id="aclock" viewBox="0 0 120 120" role="img" aria-label="Clock">
+                <circle cx="60" cy="60" r="56" class="face"/>
+                <circle cx="60" cy="60" r="50" class="ticks-min"/>
+                <circle cx="60" cy="60" r="50" class="ticks-hr" transform="rotate(-91.4 60 60)"/>
+                <path d="M60 4 L57 12 L60 9 L63 12 Z" class="twelve"/>
+                <line id="h-hand" x1="60" y1="60" x2="60" y2="30" class="hand-h"/>
+                <line id="m-hand" x1="60" y1="60" x2="60" y2="16" class="hand-m"/>
+                <polyline id="s-hand" points="60,60 54,48 64,36 58,22 60,14" class="hand-s"/>
+                <rect x="56" y="56" width="8" height="8" class="hub-dot"/>
+              </svg>
+              <div class="clock-text">
+                <div class="digital"><span id="c-hm">--:--</span><span id="c-s">:--</span></div>
+                <div id="c-date" class="soft"></div>
+                <div class="chips"><span class="chip green" id="c-week"></span><span class="chip" id="c-day"></span></div>
+                <div class="bar" title="How much of today is gone"><div id="c-prog"></div></div>
+              </div>
+            </div>
+            <div class="np" id="np">
+              <div class="np-art" id="np-art"><span>♪</span></div>
+              <div class="np-main">
+                <div class="np-top"><b id="np-name">∿ dead air ∿</b><span id="np-artist" class="soft"></span><span class="grow"></span><span id="np-src" class="np-src">○ SPOTIFY IDLE</span></div>
+                <div class="viz" id="viz"></div>
+                <div class="np-bottom" id="np-play">
+                  <span id="np-pos">0:00</span><div class="np-bar"><div id="np-prog"></div></div><span id="np-dur">0:00</span>
+                  <button class="cb" id="np-prev" aria-label="Previous song">⏮</button><button class="cb" id="np-toggle" aria-label="Play or pause">⏯</button><button class="cb" id="np-next" aria-label="Next song">⏭</button>
+                </div>
+                <div class="np-bottom" id="np-idle"><span class="soft grow" id="np-idle-text">Nothing's playing. Want me to put something on?</span><button class="chip hot" id="np-ask">ASK CAPRI ♪</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="card jump">
+            <div class="row jump-head"><span class="lbl">FAVORITES</span><span class="grow"></span>
+              <button class="chip tab" id="tab-apps" data-tab="apps">APPS</button><button class="chip tab" id="tab-web" data-tab="web">WEB</button>
+              <span class="grow"></span><button class="link" id="fav-manage">manage ›</button></div>
+            <div id="jump" class="jump-grid"></div>
+          </div>
+          <div class="card cal">
+            <div class="cal-main">
+              <div class="row"><span class="lbl">CALENDAR</span><span class="grow"></span>
+                <button class="mini" id="cal-prev" aria-label="Previous month">‹</button><span id="cal-month" class="hot"></span><button class="mini" id="cal-next" aria-label="Next month">›</button></div>
+              <div id="cal-grid" class="cal-grid"></div>
+            </div>
+            <div class="cal-day">
+              <div id="day-title" class="day-title"></div>
+              <div id="day-list" class="day-list"></div>
+              <form id="day-add" class="day-add">
+                <input id="day-text" maxlength="50" placeholder="+ Add a to-do on this day" autocomplete="off">
+                <input id="day-time" type="time" aria-label="Time">
+                <button class="btn" type="submit">ADD</button>
+              </form>
+            </div>
+          </div>
+          <div class="card ask">
+            <div class="row"><span class="lbl">ASK CAPRI</span><span class="grow"></span><button class="link" id="ask-open">open chat ›</button></div>
+            <div class="ask-msg"><img src="../assets/icon256.png" alt="" class="face-sm"><div id="ask-say" class="bubble"></div></div>
+            <form id="ask-form" class="ask-form"><input id="ask-input" placeholder="Message Capri…" autocomplete="off"><button class="send" aria-label="Send">➤</button></form>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHAT -->
+      <section class="page" id="p-chat" hidden>
+        <div class="chat">
+          <div class="row"><span class="chip hot" id="chat-brain"></span><span class="grow"></span><button class="btn ghost" id="chat-clear">CLEAR MEMORY</button></div>
+          <div id="chat-log" class="card chat-log"></div>
+          <form id="chat-form" class="chat-form">
+            <textarea id="chat-input" rows="2" placeholder="Ask anything… (Shift+Enter for a new line)"></textarea>
+            <button class="btn" id="chat-send">SEND</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- TASK -->
+      <section class="page" id="p-task" hidden>
+        <div class="task">
+          <div class="card todo-card">
+            <div class="lbl">TO-DO</div>
+            <form id="todo-add" class="todo-add">
+              <input id="todo-text" maxlength="50" placeholder="New to-do…" autocomplete="off">
+              <input id="todo-date" type="date" aria-label="Day">
+              <input id="todo-time" type="time" aria-label="Time">
+              <button type="button" id="todo-bell" class="bell" aria-label="Remind me" title="Remind me at that time">◆</button>
+              <button class="btn" type="submit">ADD</button>
+            </form>
+            <div id="todo-list" class="todo-list"></div>
+          </div>
+          <div class="card notes-card">
+            <div class="row"><span class="lbl">NOTES</span><span class="grow"></span><button class="btn ghost" id="note-new">+ NEW NOTE</button></div>
+            <div class="notes">
+              <div id="note-list" class="note-list"></div>
+              <div class="note-edit">
+                <input id="note-title" maxlength="120" placeholder="Title">
+                <textarea id="note-body" placeholder="Write anything…"></textarea>
+                <div class="row"><span id="note-saved" class="tiny soft"></span><span class="grow"></span><button class="link bad" id="note-del">delete note</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- APPS -->
+      <section class="page" id="p-apps" hidden>
+        <div class="apps">
+          <input id="apps-search" class="search" placeholder="Search apps on this PC…" autocomplete="off">
+          <div id="apps-grid" class="apps-grid"></div>
+          <div class="tiny soft">Every app in your Start menu. Click to open · ☆ adds it to your Favorites (shown on the Dashboard).</div>
+        </div>
+      </section>
+
+      <!-- STATS -->
+      <section class="page" id="p-stats" hidden>
+        <div class="stats">
+          <div id="meters" class="meters"></div>
+          <div class="card procs">
+            <div class="row"><span class="lbl">PROCESSES</span><span class="grow"></span><span class="tiny soft" id="proc-count"></span></div>
+            <div class="proc-head"><span>NAME</span><span>CPU</span><span>MEMORY</span><span></span></div>
+            <div id="proc-list" class="proc-list"></div>
+          </div>
+          <div class="card disks">
+            <div class="row"><span class="lbl">STORAGE</span><span class="grow"></span><span class="tiny soft" id="uptime"></span></div>
+            <div id="disk-list" class="disk-list"></div>
+            <div class="row cleanup">
+              <button class="btn ghost" id="bin-btn">RECYCLE BIN · …</button>
+              <button class="btn ghost" id="temp-btn">TEMP FILES · …</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN TIME -->
+      <section class="page" id="p-time" hidden>
+        <div class="time">
+          <div class="card time-today">
+            <div class="row"><span class="lbl">TODAY</span><span class="grow"></span><span id="time-total" class="big"></span></div>
+            <div id="time-list" class="time-list"></div>
+          </div>
+          <div class="card time-week">
+            <div class="row"><span class="lbl">LAST 7 DAYS</span><span class="grow"></span><label class="switch"><input type="checkbox" id="time-on"> counting</label></div>
+            <div id="week-bars" class="week-bars"></div>
+            <div id="week-labels" class="week-labels"></div>
+            <div class="tiny soft" id="time-note">Counted while Capri runs: the app in front, per day. Only app names are saved (never window titles). Time away from the PC (3 min without input) doesn't count, unless the app is full screen.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FAVORITES -->
+      <section class="page" id="p-mine" hidden>
+        <div class="mine">
+          <div class="card fav-sec">
+            <div class="row"><span class="lbl">APPS</span><span class="soft tiny grow">The first 8 show on the Dashboard; Capri opens them by name. Drop an exe or shortcut here, use + ADD APP, or ☆ an app on the Apps page.</span><button class="btn" id="mine-add">+ ADD APP</button></div>
+            <div id="mine-list" class="mine-list"></div>
+          </div>
+          <div class="card fav-sec">
+            <form class="row" id="web-add"><span class="lbl">WEBSITES</span><span class="grow"></span>
+              <input id="web-name" maxlength="60" placeholder="Name" autocomplete="off" style="max-width:200px">
+              <input id="web-url" placeholder="https://…" autocomplete="off" style="max-width:320px">
+              <button class="btn">+ ADD WEBSITE</button></form>
+            <div id="web-list" class="mine-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TERMINAL: her terminal page is placed over #term-host by the main process -->
+      <section class="page" id="p-term" hidden>
+        <div id="term-host" class="term-host"><span class="soft">Starting the terminal…</span></div>
+      </section>
+
+      <!-- STATUS -->
+      <section class="page" id="p-status" hidden>
+        <div class="status">
+          <div id="svc" class="svc-grid"></div>
+          <div class="card recent"><div class="row"><span class="lbl">RECENT</span><span class="grow"></span><span class="tiny soft" id="status-at"></span></div><div id="recent" class="recent-list"></div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="pop" class="pop" hidden></div>
+  <div id="toast" hidden></div>
+</div>
+<script src="hub.js"></script>
+</body>
+</html>

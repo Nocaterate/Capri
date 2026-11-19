@@ -291,6 +291,12 @@
         <small>Let Capri use your browser: open and switch tabs, read pages for you, click, type and fill forms, play/pause videos.
           She works in your real browser with your logins. Anything that could send, buy, post or delete asks you first on the desktop,
           and she never types passwords or card numbers. Ask her things like <i>"open YouTube in Edge and play lofi"</i> or <i>"what does this page say?"</i>.</small>
+        <label>Capri's browser (where she opens pages, and the one she uses first)
+          <select name="defaultBrowser">
+            <option value="">Windows' default browser</option>
+            <option value="chrome">Chrome</option><option value="edge">Edge</option><option value="brave">Brave</option>
+            <option value="opera">Opera</option><option value="vivaldi">Vivaldi</option><option value="firefox">Firefox</option>
+          </select></label>
         <div id="browserStatus" class="status-list"></div>
         <details class="howto" id="howtoBrowser">
           <summary>How to link a browser</summary>
@@ -384,9 +390,11 @@
           <label>Talk (voice)<input name="hotkeyTalk" /></label>
           <label>Type a message<input name="hotkeyType" /></label>
           <label>Hide / summon<input name="hotkeyHide" /></label>
+          <label>Open Capri Hub<input name="hotkeyHub" /></label>
         </div>
         <small>Electron format, e.g. <code>Control+Alt+Space</code>, <code>Control+Shift+A</code>.</small>
         <label class="check"><input name="openAtLogin" type="checkbox" /> Start Capri when Windows starts</label>
+        <label class="check"><input name="hubAtLogin" type="checkbox" /> …and open Capri Hub too (when Windows starts, and when you pick Restart in her menu)</label>
       </section>
     </div>
     <p id="nothing" hidden>No setting matches that.</p>
